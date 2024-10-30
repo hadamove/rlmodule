@@ -1,4 +1,4 @@
-from typing import Any, Mapping, Optional, Sequence, Tuple, Union
+from typing import Any, Mapping, Optional, Tuple, Union
 
 import collections
 import gym
@@ -7,36 +7,50 @@ import gymnasium
 import torch
 import torch.nn as nn
 
-# TODO do not depend on skrl, also remove skrl from pyproject.toml
-from skrl import config, logger
-
-def contains_rnn_module(module: nn.Module, module_types):
-    for submodule in module.modules():
-        if isinstance(submodule, module_types):
-            return True
-    return False
+from rlmodule import logger
+from rlmodule.source.utils import contains_rnn_module
 
 
 class Model(torch.nn.Module):
-    def __init__(self,
-                 device: Union[str, torch.device],
-                 network: nn.Module) -> None:
-        """Base class representing a function approximator
-        """
+    def __init__(self, device: Union[str, torch.device], network: nn.Module) -> None:
+        """Base class representing a function approximator"""
         super().__init__()
 
         # TODO check if this is done outside. also it is not optional rn.
-        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu") if device is None else torch.device(device)
+        self.device = (
+            torch.device("cuda:0" if torch.cuda.is_available() else "cpu") if device is None else torch.device(device)
+        )
         self._net = network
 
-        self._lstm = contains_rnn_module( self, nn.LSTM)
-        self._rnn = contains_rnn_module( self, (nn.LSTM, nn.RNN, nn.GRU))
-        
-        print("is rnn: ", self._rnn)
-        print("is lstm: ", self._lstm)
+        self._lstm = contains_rnn_module(self, nn.LSTM)
+        self._rnn = contains_rnn_module(self, (nn.LSTM, nn.RNN, nn.GRU))
+
+        logger.info(f"model contains rnn:  {self._rnn}")
+        logger.info(f"model contains lstm: {self._lstm}")
 
         self._random_distribution = None
 
+    @property
+    def is_rnn(self):
+        """Return true if there is a submodule with RNN architecture
+
+        Submodules for which it will return true: nn.RNN, nn.GRU, nn.LSTM
+        """
+        return self._rnn
+
+    @property
+    def is_lstm(self):
+        """Return true if there is an LSTM submodule"""
+        return self._lstm
+
+    
+    def _get_policy_output_layer(self):
+        if hasattr(self, '_policy_output_layer'):
+            return self._policy_output_layer  # SharedModel
+        else:
+            return self._output_layer  # SeparatedModels
+    
+    
     def get_entropy(self, role: str = "") -> torch.Tensor:
         """Compute and return the entropy of the model
 
@@ -51,8 +65,8 @@ class Model(torch.nn.Module):
             >>> print(entropy.shape)
             torch.Size([4096, 8])
         """
-        return self._policy_output_layer.get_entropy(role)
-    
+        return self._get_policy_output_layer().get_entropy(role)
+
     def distribution(self, role: str = "") -> torch.distributions.Normal:
         """Get the current distribution of the model
 
@@ -67,7 +81,7 @@ class Model(torch.nn.Module):
             >>> print(distribution)
             Normal(loc: torch.Size([4096, 8]), scale: torch.Size([4096, 8]))
         """
-        return self._policy_output_layer.distribution(role)
+        return self._get_policy_output_layer().distribution(role)
 
     def get_specification(self) -> Mapping[str, Any]:
         """Returns the specification of the model
@@ -76,8 +90,10 @@ class Model(torch.nn.Module):
 
         - ``"rnn"``: Recurrent Neural Network (RNN) specification for RNN, LSTM and GRU layers/cells
 
-          - ``"sizes"``: List of RNN shapes (number of layers, number of environments, number of features in the RNN state).
-            There must be as many tuples as there are states in the recurrent layer/cell. E.g., LSTM has 2 states (hidden and cell).
+          - ``"sizes"``: List of RNN shapes (number of layers, number of environments,
+            number of features in the RNN state).
+            There must be as many tuples as there are states in the recurrent layer/cell.
+            E.g., LSTM has 2 states (hidden and cell).
 
         :return: Dictionary containing advanced specification of the model
         :rtype: dict
@@ -90,22 +106,34 @@ class Model(torch.nn.Module):
             # - number of features in the RNN state: 64
             >>> model.get_specification()
             {'rnn': {'sizes': [(1, 4, 64), (1, 4, 64)]}}
-        """   
+        """
         if self._lstm:
-            return {"rnn": {"sequence_length": self._net.sequence_length,
-                            "sizes": [(self._net.num_layers, self._net.num_envs, self._net.hidden_size),    # hidden states (D ∗ num_layers, N, Hout)
-                                      (self._net.num_layers, self._net.num_envs, self._net.hidden_size)]}}  # cell states   (D ∗ num_layers, N, Hcell)
+            return {
+                "rnn": {
+                    "sequence_length": self._net.sequence_length,
+                    "sizes": [
+                        (
+                            self._net.num_layers,
+                            self._net.num_envs,
+                            self._net.hidden_size,
+                        ),  # hidden states (D ∗ num_layers, N, Hout)
+                        (self._net.num_layers, self._net.num_envs, self._net.hidden_size),
+                    ],
+                }
+            }  # cell states   (D ∗ num_layers, N, Hcell)
         elif self._rnn:
-            return {"rnn": {"sequence_length": self._net.sequence_length,
-                            "sizes": [(self._net.num_layers, self._net.num_envs, self._net.hidden_size)]}}    # hidden states (D ∗ num_layers, N, Hout)
+            return {
+                "rnn": {
+                    "sequence_length": self._net.sequence_length,
+                    "sizes": [(self._net.num_layers, self._net.num_envs, self._net.hidden_size)],
+                }
+            }  # hidden states (D ∗ num_layers, N, Hout)
         else:
             return {}
-    
-    
-    def tensor_to_space(self,
-                        tensor: torch.Tensor,
-                        space: Union[gym.Space, gymnasium.Space],
-                        start: int = 0) -> Union[torch.Tensor, dict]:
+
+    def tensor_to_space(
+        self, tensor: torch.Tensor, space: Union[gym.Space, gymnasium.Space], start: int = 0
+    ) -> Union[torch.Tensor, dict]:
         """Map a flat tensor to a Gym/Gymnasium space
 
         The mapping is done in the following way:
@@ -163,39 +191,39 @@ class Model(torch.nn.Module):
                     start = end
                 return output
         raise ValueError(f"Space type {type(space)} not supported")
+    
+    def random_act(self,
+                   inputs: Mapping[str, Union[torch.Tensor, Any]],
+                   role: str = "") -> Tuple[torch.Tensor, None, Mapping[str, Union[torch.Tensor, Any]]]:
+        """Act randomly according to the action space
 
-    # No need to suport?
-    # def random_act(self,
-    #                inputs: Mapping[str, Union[torch.Tensor, Any]],
-    #                role: str = "") -> Tuple[torch.Tensor, None, Mapping[str, Union[torch.Tensor, Any]]]:
-    #     """Act randomly according to the action space
+        :param inputs: Model inputs. The most common keys are:
 
-    #     :param inputs: Model inputs. The most common keys are:
+                       - ``"states"``: state of the environment used to make the decision
+                       - ``"taken_actions"``: actions taken by the policy for the given states
+        :type inputs: dict where the values are typically torch.Tensor
+        :param role: Role play by the model (default: ``""``)
+        :type role: str, optional
 
-    #                    - ``"states"``: state of the environment used to make the decision
-    #                    - ``"taken_actions"``: actions taken by the policy for the given states
-    #     :type inputs: dict where the values are typically torch.Tensor
-    #     :param role: Role play by the model (default: ``""``)
-    #     :type role: str, optional
+        :raises NotImplementedError: Unsupported action space
 
-    #     :raises NotImplementedError: Unsupported action space
+        :return: Model output. The first component is the action to be taken by the agent
+        :rtype: tuple of torch.Tensor, None, and dict
+        """
+        # discrete action space (Discrete)
+        if issubclass(type(self.action_space), gym.spaces.Discrete) or issubclass(type(self.action_space), gymnasium.spaces.Discrete):
+            return torch.randint(self.action_space.n, (inputs["states"].shape[0], 1), device=self.device), None, {}
+        # continuous action space (Box)
+        elif issubclass(type(self.action_space), gym.spaces.Box) or issubclass(type(self.action_space), gymnasium.spaces.Box):
+            if self._random_distribution is None:
+                self._random_distribution = torch.distributions.uniform.Uniform(
+                    low=torch.tensor(self.action_space.low[0], device=self.device, dtype=torch.float32),
+                    high=torch.tensor(self.action_space.high[0], device=self.device, dtype=torch.float32))
 
-    #     :return: Model output. The first component is the action to be taken by the agent
-    #     :rtype: tuple of torch.Tensor, None, and dict
-    #     """
-    #     # discrete action space (Discrete)
-    #     if issubclass(type(self.action_space), gym.spaces.Discrete) or issubclass(type(self.action_space), gymnasium.spaces.Discrete):
-    #         return torch.randint(self.action_space.n, (inputs["states"].shape[0], 1), device=self.device), None, {}
-    #     # continuous action space (Box)
-    #     elif issubclass(type(self.action_space), gym.spaces.Box) or issubclass(type(self.action_space), gymnasium.spaces.Box):
-    #         if self._random_distribution is None:
-    #             self._random_distribution = torch.distributions.uniform.Uniform(
-    #                 low=torch.tensor(self.action_space.low[0], device=self.device, dtype=torch.float32),
-    #                 high=torch.tensor(self.action_space.high[0], device=self.device, dtype=torch.float32))
+            return self._random_distribution.sample(sample_shape=(inputs["states"].shape[0], self.num_actions)), None, {}
+        else:
+            raise NotImplementedError(f"Action space type ({type(self.action_space)}) not supported")
 
-    #         return self._random_distribution.sample(sample_shape=(inputs["states"].shape[0], self.num_actions)), None, {}
-    #     else:
-    #         raise NotImplementedError(f"Action space type ({type(self.action_space)}) not supported")
 
     def init_parameters(self, method_name: str = "normal_", *args, **kwargs) -> None:
         """Initialize the model parameters according to the specified method name
@@ -203,7 +231,8 @@ class Model(torch.nn.Module):
         Method names are from the `torch.nn.init <https://pytorch.org/docs/stable/nn.init.html>`_ module.
         Allowed method names are *uniform_*, *normal_*, *constant_*, etc.
 
-        :param method_name: `torch.nn.init <https://pytorch.org/docs/stable/nn.init.html>`_ method name (default: ``"normal_"``)
+        :param method_name: `torch.nn.init <https://pytorch.org/docs/stable/nn.init.html>`_ method name
+            (default: ``"normal_"``)
         :type method_name: str, optional
         :param args: Positional arguments of the method to be called
         :type args: tuple, optional
@@ -230,7 +259,8 @@ class Model(torch.nn.Module):
         The following layers will be initialized:
         - torch.nn.Linear
 
-        :param method_name: `torch.nn.init <https://pytorch.org/docs/stable/nn.init.html>`_ method name (default: ``"orthogonal_"``)
+        :param method_name: `torch.nn.init <https://pytorch.org/docs/stable/nn.init.html>`_ method name
+            (default: ``"orthogonal_"``)
         :type method_name: str, optional
         :param args: Positional arguments of the method to be called
         :type args: tuple, optional
@@ -245,6 +275,7 @@ class Model(torch.nn.Module):
             # initialize all weights with normal distribution with mean 0 and standard deviation 0.25
             >>> model.init_weights(method_name="normal_", mean=0.0, std=0.25)
         """
+
         def _update_weights(module, method_name, args, kwargs):
             for layer in module:
                 if isinstance(layer, torch.nn.Sequential):
@@ -263,7 +294,8 @@ class Model(torch.nn.Module):
         The following layers will be initialized:
         - torch.nn.Linear
 
-        :param method_name: `torch.nn.init <https://pytorch.org/docs/stable/nn.init.html>`_ method name (default: ``"constant_"``)
+        :param method_name: `torch.nn.init <https://pytorch.org/docs/stable/nn.init.html>`_
+            method name (default: ``"constant_"``)
         :type method_name: str, optional
         :param args: Positional arguments of the method to be called
         :type args: tuple, optional
@@ -278,6 +310,7 @@ class Model(torch.nn.Module):
             # initialize all biases with normal distribution with mean 0 and standard deviation 0.25
             >>> model.init_biases(method_name="normal_", mean=0.0, std=0.25)
         """
+
         def _update_biases(module, method_name, args, kwargs):
             for layer in module:
                 if isinstance(layer, torch.nn.Sequential):
@@ -287,36 +320,12 @@ class Model(torch.nn.Module):
 
         _update_biases(self.children(), method_name, args, kwargs)
 
-    def get_specification(self) -> Mapping[str, Any]:
-        """Returns the specification of the model
-
-        The following keys are used by the agents for initialization:
-
-        - ``"rnn"``: Recurrent Neural Network (RNN) specification for RNN, LSTM and GRU layers/cells
-
-          - ``"sizes"``: List of RNN shapes (number of layers, number of environments, number of features in the RNN state).
-            There must be as many tuples as there are states in the recurrent layer/cell. E.g., LSTM has 2 states (hidden and cell).
-
-        :return: Dictionary containing advanced specification of the model
-        :rtype: dict
-
-        Example::
-
-            # model with a LSTM layer.
-            # - number of layers: 1
-            # - number of environments: 4
-            # - number of features in the RNN state: 64
-            >>> model.get_specification()
-            {'rnn': {'sizes': [(1, 4, 64), (1, 4, 64)]}}
-        """
-        return {}
-
-    def forward(self,
-                inputs: Mapping[str, Union[torch.Tensor, Any]],
-                role: str = "") -> Tuple[torch.Tensor, Union[torch.Tensor, None], Mapping[str, Union[torch.Tensor, Any]]]:
+    def forward(
+        self, inputs: Mapping[str, Union[torch.Tensor, Any]], role: str = ""
+    ) -> Tuple[torch.Tensor, Union[torch.Tensor, None], Mapping[str, Union[torch.Tensor, Any]]]:
         """Forward pass of the model
 
-        This method calls the ``.act()`` method and returns its outputs
+        Implementation of this method manages calling forward passes of all its components.
 
         :param inputs: Model inputs. The most common keys are:
 
@@ -331,36 +340,12 @@ class Model(torch.nn.Module):
                  or None for deterministic models. The third component is a dictionary containing extra output values
         :rtype: tuple of torch.Tensor, torch.Tensor or None, and dict
         """
-        return self.act(inputs, role)
+        raise NotImplementedError("The action to be taken by the agent (.forward()) is not implemented")
 
-    def compute(self,
-                inputs: Mapping[str, Union[torch.Tensor, Any]],
-                role: str = "") -> Tuple[Union[torch.Tensor, Mapping[str, Union[torch.Tensor, Any]]]]:
-        """Define the computation performed (to be implemented by the inheriting classes) by the models
-
-        :param inputs: Model inputs. The most common keys are:
-
-                       - ``"states"``: state of the environment used to make the decision
-                       - ``"taken_actions"``: actions taken by the policy for the given states
-        :type inputs: dict where the values are typically torch.Tensor
-        :param role: Role play by the model (default: ``""``)
-        :type role: str, optional
-
-        :raises NotImplementedError: Child class must implement this method
-
-        :return: Computation performed by the models
-        :rtype: tuple of torch.Tensor and dict
-        """
-        raise NotImplementedError("The computation performed by the models (.compute()) is not implemented")
-
-    def act(self,
-            inputs: Mapping[str, Union[torch.Tensor, Any]],
-            role: str = "") -> Tuple[torch.Tensor, Union[torch.Tensor, None], Mapping[str, Union[torch.Tensor, Any]]]:
-        """Act according to the specified behavior (to be implemented by the inheriting classes)
-
-        Agents will call this method to obtain the decision to be taken given the state of the environment.
-        This method is currently implemented by the helper models (**GaussianModel**, etc.).
-        The classes that inherit from the latter must only implement the ``.compute()`` method
+    def act(
+        self, inputs: Mapping[str, Union[torch.Tensor, Any]], role: str = ""
+    ) -> Tuple[torch.Tensor, Union[torch.Tensor, None], Mapping[str, Union[torch.Tensor, Any]]]:
+        """This method calls the ``.forward()`` method and returns its outputs
 
         :param inputs: Model inputs. The most common keys are:
 
@@ -369,22 +354,20 @@ class Model(torch.nn.Module):
         :type inputs: dict where the values are typically torch.Tensor
         :param role: Role play by the model (default: ``""``)
         :type role: str, optional
-
-        :raises NotImplementedError: Child class must implement this method
 
         :return: Model output. The first component is the action to be taken by the agent.
                  The second component is the log of the probability density function for stochastic models
                  or None for deterministic models. The third component is a dictionary containing extra output values
         :rtype: tuple of torch.Tensor, torch.Tensor or None, and dict
         """
-        logger.warning("Make sure to place Mixins before Model during model definition")
-        raise NotImplementedError("The action to be taken by the agent (.act()) is not implemented")
+        return self.forward(inputs, role)
 
     def set_mode(self, mode: str) -> None:
         """Set the model mode (training or evaluation)
 
         :param mode: Mode: ``"train"`` for training or ``"eval"`` for evaluation.
-            See `torch.nn.Module.train <https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module.train>`_
+            See `torch.nn.Module.train
+            <https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module.train>`_
         :type mode: str
 
         :raises ValueError: If the mode is not ``"train"`` or ``"eval"``
@@ -438,13 +421,15 @@ class Model(torch.nn.Module):
         self.load_state_dict(torch.load(path, map_location=self.device))
         self.eval()
 
-    def migrate(self,
-                state_dict: Optional[Mapping[str, torch.Tensor]] = None,
-                path: Optional[str] = None,
-                name_map: Mapping[str, str] = {},
-                auto_mapping: bool = True,
-                verbose: bool = False) -> bool:
-        """Migrate the specified extrernal model's state dict to the current model
+    def migrate(
+        self,
+        state_dict: Optional[Mapping[str, torch.Tensor]] = None,
+        path: Optional[str] = None,
+        name_map: Mapping[str, str] = {},
+        auto_mapping: bool = True,
+        verbose: bool = False,
+    ) -> bool:
+        """Migrate the specified external model's state dict to the current model
 
         The final storage device is determined by the constructor of the model
 
@@ -482,13 +467,17 @@ class Model(torch.nn.Module):
 
             # migrate a rl_games checkpoint with ambiguous state_dict
             >>> model.migrate(path="./runs/Cartpole/nn/Cartpole.pth", verbose=False)
-            [skrl:WARNING] Ambiguous match for log_std_parameter <- [value_mean_std.running_mean, value_mean_std.running_var, a2c_network.sigma]
-            [skrl:WARNING] Ambiguous match for net.0.bias <- [a2c_network.actor_mlp.0.bias, a2c_network.actor_mlp.2.bias]
-            [skrl:WARNING] Ambiguous match for net.2.bias <- [a2c_network.actor_mlp.0.bias, a2c_network.actor_mlp.2.bias]
-            [skrl:WARNING] Ambiguous match for net.4.weight <- [a2c_network.value.weight, a2c_network.mu.weight]
-            [skrl:WARNING] Ambiguous match for net.4.bias <- [a2c_network.value.bias, a2c_network.mu.bias]
-            [skrl:WARNING] Multiple use of a2c_network.actor_mlp.0.bias -> [net.0.bias, net.2.bias]
-            [skrl:WARNING] Multiple use of a2c_network.actor_mlp.2.bias -> [net.0.bias, net.2.bias]
+            [rlmodule:WARNING] Ambiguous match for log_std_parameter <- [value_mean_std.running_mean,
+                               value_mean_std.running_var, a2c_network.sigma]
+            [rlmodule:WARNING] Ambiguous match for net.0.bias <- [a2c_network.actor_mlp.0.bias,
+                               a2c_network.actor_mlp.2.bias]
+            [rlmodule:WARNING] Ambiguous match for net.2.bias <- [a2c_network.actor_mlp.0.bias,
+                               a2c_network.actor_mlp.2.bias]
+            [rlmodule:WARNING] Ambiguous match for net.4.weight <- [a2c_network.value.weight,
+                               a2c_network.mu.weight]
+            [rlmodule:WARNING] Ambiguous match for net.4.bias <- [a2c_network.value.bias, a2c_network.mu.bias]
+            [rlmodule:WARNING] Multiple use of a2c_network.actor_mlp.0.bias -> [net.0.bias, net.2.bias]
+            [rlmodule:WARNING] Multiple use of a2c_network.actor_mlp.2.bias -> [net.0.bias, net.2.bias]
             False
             >>> name_map = {"log_std_parameter": "a2c_network.sigma",
             ...             "net.0.bias": "a2c_network.actor_mlp.0.bias",
@@ -496,39 +485,39 @@ class Model(torch.nn.Module):
             ...             "net.4.weight": "a2c_network.mu.weight",
             ...             "net.4.bias": "a2c_network.mu.bias"}
             >>> model.migrate(path="./runs/Cartpole/nn/Cartpole.pth", name_map=name_map, verbose=True)
-            [skrl:INFO] Models
-            [skrl:INFO]   |-- current: 7 items
-            [skrl:INFO]   |    |-- log_std_parameter : torch.Size([1])
-            [skrl:INFO]   |    |-- net.0.weight : torch.Size([32, 4])
-            [skrl:INFO]   |    |-- net.0.bias : torch.Size([32])
-            [skrl:INFO]   |    |-- net.2.weight : torch.Size([32, 32])
-            [skrl:INFO]   |    |-- net.2.bias : torch.Size([32])
-            [skrl:INFO]   |    |-- net.4.weight : torch.Size([1, 32])
-            [skrl:INFO]   |    |-- net.4.bias : torch.Size([1])
-            [skrl:INFO]   |-- source: 15 items
-            [skrl:INFO]   |    |-- value_mean_std.running_mean : torch.Size([1])
-            [skrl:INFO]   |    |-- value_mean_std.running_var : torch.Size([1])
-            [skrl:INFO]   |    |-- value_mean_std.count : torch.Size([])
-            [skrl:INFO]   |    |-- running_mean_std.running_mean : torch.Size([4])
-            [skrl:INFO]   |    |-- running_mean_std.running_var : torch.Size([4])
-            [skrl:INFO]   |    |-- running_mean_std.count : torch.Size([])
-            [skrl:INFO]   |    |-- a2c_network.sigma : torch.Size([1])
-            [skrl:INFO]   |    |-- a2c_network.actor_mlp.0.weight : torch.Size([32, 4])
-            [skrl:INFO]   |    |-- a2c_network.actor_mlp.0.bias : torch.Size([32])
-            [skrl:INFO]   |    |-- a2c_network.actor_mlp.2.weight : torch.Size([32, 32])
-            [skrl:INFO]   |    |-- a2c_network.actor_mlp.2.bias : torch.Size([32])
-            [skrl:INFO]   |    |-- a2c_network.value.weight : torch.Size([1, 32])
-            [skrl:INFO]   |    |-- a2c_network.value.bias : torch.Size([1])
-            [skrl:INFO]   |    |-- a2c_network.mu.weight : torch.Size([1, 32])
-            [skrl:INFO]   |    |-- a2c_network.mu.bias : torch.Size([1])
-            [skrl:INFO] Migration
-            [skrl:INFO]   |-- map:  log_std_parameter <- a2c_network.sigma
-            [skrl:INFO]   |-- auto: net.0.weight <- a2c_network.actor_mlp.0.weight
-            [skrl:INFO]   |-- map:  net.0.bias <- a2c_network.actor_mlp.0.bias
-            [skrl:INFO]   |-- auto: net.2.weight <- a2c_network.actor_mlp.2.weight
-            [skrl:INFO]   |-- map:  net.2.bias <- a2c_network.actor_mlp.2.bias
-            [skrl:INFO]   |-- map:  net.4.weight <- a2c_network.mu.weight
-            [skrl:INFO]   |-- map:  net.4.bias <- a2c_network.mu.bias
+            [rlmodule:INFO] Models
+            [rlmodule:INFO]   |-- current: 7 items
+            [rlmodule:INFO]   |    |-- log_std_parameter : torch.Size([1])
+            [rlmodule:INFO]   |    |-- net.0.weight : torch.Size([32, 4])
+            [rlmodule:INFO]   |    |-- net.0.bias : torch.Size([32])
+            [rlmodule:INFO]   |    |-- net.2.weight : torch.Size([32, 32])
+            [rlmodule:INFO]   |    |-- net.2.bias : torch.Size([32])
+            [rlmodule:INFO]   |    |-- net.4.weight : torch.Size([1, 32])
+            [rlmodule:INFO]   |    |-- net.4.bias : torch.Size([1])
+            [rlmodule:INFO]   |-- source: 15 items
+            [rlmodule:INFO]   |    |-- value_mean_std.running_mean : torch.Size([1])
+            [rlmodule:INFO]   |    |-- value_mean_std.running_var : torch.Size([1])
+            [rlmodule:INFO]   |    |-- value_mean_std.count : torch.Size([])
+            [rlmodule:INFO]   |    |-- running_mean_std.running_mean : torch.Size([4])
+            [rlmodule:INFO]   |    |-- running_mean_std.running_var : torch.Size([4])
+            [rlmodule:INFO]   |    |-- running_mean_std.count : torch.Size([])
+            [rlmodule:INFO]   |    |-- a2c_network.sigma : torch.Size([1])
+            [rlmodule:INFO]   |    |-- a2c_network.actor_mlp.0.weight : torch.Size([32, 4])
+            [rlmodule:INFO]   |    |-- a2c_network.actor_mlp.0.bias : torch.Size([32])
+            [rlmodule:INFO]   |    |-- a2c_network.actor_mlp.2.weight : torch.Size([32, 32])
+            [rlmodule:INFO]   |    |-- a2c_network.actor_mlp.2.bias : torch.Size([32])
+            [rlmodule:INFO]   |    |-- a2c_network.value.weight : torch.Size([1, 32])
+            [rlmodule:INFO]   |    |-- a2c_network.value.bias : torch.Size([1])
+            [rlmodule:INFO]   |    |-- a2c_network.mu.weight : torch.Size([1, 32])
+            [rlmodule:INFO]   |    |-- a2c_network.mu.bias : torch.Size([1])
+            [rlmodule:INFO] Migration
+            [rlmodule:INFO]   |-- map:  log_std_parameter <- a2c_network.sigma
+            [rlmodule:INFO]   |-- auto: net.0.weight <- a2c_network.actor_mlp.0.weight
+            [rlmodule:INFO]   |-- map:  net.0.bias <- a2c_network.actor_mlp.0.bias
+            [rlmodule:INFO]   |-- auto: net.2.weight <- a2c_network.actor_mlp.2.weight
+            [rlmodule:INFO]   |-- map:  net.2.bias <- a2c_network.actor_mlp.2.bias
+            [rlmodule:INFO]   |-- map:  net.4.weight <- a2c_network.mu.weight
+            [rlmodule:INFO]   |-- map:  net.4.bias <- a2c_network.mu.bias
             False
 
             # migrate a stable-baselines3 checkpoint with unambiguous state_dict
@@ -554,9 +543,10 @@ class Model(torch.nn.Module):
             # stable-baselines3
             elif path.endswith(".zip"):
                 import zipfile
+
                 try:
-                    archive = zipfile.ZipFile(path, 'r')
-                    with archive.open('policy.pth', mode="r") as file:
+                    archive = zipfile.ZipFile(path, "r")
+                    with archive.open("policy.pth", mode="r") as file:
                         state_dict = torch.load(file, map_location=self.device)
                 except KeyError as e:
                     logger.warning(str(e))
@@ -591,7 +581,9 @@ class Model(torch.nn.Module):
                             logger.info(f"  |-- map:  {name} <- {external_name}")
                         break
                     else:
-                        logger.warning(f"Shape mismatch for {name} <- {external_name} : {tensor.shape} != {external_tensor.shape}")
+                        logger.warning(
+                            f"Shape mismatch for {name} <- {external_name} : {tensor.shape} != {external_tensor.shape}"
+                        )
                 # auto-mapped names
                 if auto_mapping and name not in name_map:
                     if tensor.shape == external_tensor.shape:
@@ -690,48 +682,3 @@ class Model(torch.nn.Module):
                 for parameters, model_parameters in zip(self.parameters(), model.parameters()):
                     parameters.data.mul_(1 - polyak)
                     parameters.data.add_(polyak * model_parameters.data)
-
-    def broadcast_parameters(self, rank: int = 0):
-        """Broadcast model parameters to the whole group (e.g.: across all nodes) in distributed runs
-
-        After calling this method, the distributed model will contain the broadcasted parameters from ``rank``
-
-        :param rank: Worker/process rank from which to broadcast model parameters (default: ``0``)
-        :type rank: int
-
-        Example::
-
-            # broadcast model parameter from worker/process with rank 1
-            >>> if config.torch.is_distributed:
-            ...     model.update_parameters(source_model, rank=1)
-        """
-        object_list = [self.state_dict()]
-        torch.distributed.broadcast_object_list(object_list, rank)
-        self.load_state_dict(object_list[0])
-
-    def reduce_parameters(self):
-        """Reduce model parameters across all workers/processes in the whole group (e.g.: across all nodes)
-
-        After calling this method, the distributed model parameters will be bitwise identical for all workers/processes
-
-        Example::
-
-            # reduce model parameter across all workers/processes
-            >>> if config.torch.is_distributed:
-            ...     model.reduce_parameters()
-        """
-        # batch all_reduce ops: https://github.com/entity-neural-network/incubator/pull/220
-        gradients = []
-        for parameters in self.parameters():
-            if parameters.grad is not None:
-                gradients.append(parameters.grad.view(-1))
-        gradients = torch.cat(gradients)
-
-        torch.distributed.all_reduce(gradients, op=torch.distributed.ReduceOp.SUM)
-
-        offset = 0
-        for parameters in self.parameters():
-            if parameters.grad is not None:
-                parameters.grad.data.copy_(gradients[offset:offset + parameters.numel()] \
-                                           .view_as(parameters.grad.data) / config.torch.world_size)
-                offset += parameters.numel()
