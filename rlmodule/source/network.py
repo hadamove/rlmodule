@@ -79,7 +79,7 @@ class LSTM(RnnBase):
         super().__init__(cfg)
 
         self.lstm = nn.LSTM(
-            input_states=cfg.input_states,
+            input_size=cfg.input_states,
             hidden_size=cfg.hidden_size,
             num_layers=cfg.num_layers,
             batch_first=True,
@@ -248,7 +248,7 @@ class RNN(RnnModule):
         super().__init__(cfg)
 
         self.rnn = nn.RNN(
-            input_states=cfg.input_states,
+            input_size=cfg.input_states,
             hidden_size=cfg.hidden_size,
             num_layers=cfg.num_layers,
             batch_first=True,
@@ -279,7 +279,7 @@ class GRU(RnnModule):
         super().__init__(cfg)
 
         self.rnn = nn.GRU(
-            input_states=cfg.input_states,
+            input_size=cfg.input_states,
             hidden_size=cfg.hidden_size,
             num_layers=cfg.num_layers,
             batch_first=True,
