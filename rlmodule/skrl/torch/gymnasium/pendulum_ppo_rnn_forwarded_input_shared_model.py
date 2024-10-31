@@ -24,17 +24,17 @@ def get_model(env):
     """Instantiate the agent's models (function approximators)."""
 
     net_cfg = RnnMlpCfg(
-        input_size = env.observation_space,
-        module = RnnMlpWithForwardedInput,
-        rnn = RnnCfg(
-            num_envs = env.num_envs,
-            num_layers = 1,
-            hidden_size = 32,
-            sequence_length = 16,
+        input_states=env.observation_space,
+        module=RnnMlpWithForwardedInput,
+        rnn=RnnCfg(
+            num_envs=env.num_envs,
+            num_layers=1,
+            hidden_size=32,
+            sequence_length=16,
         ),
-        mlp = MlpCfg(
-            hidden_units = [64, 64],
-            activation = nn.ReLU,
+        mlp=MlpCfg(
+            hidden_units=[64, 64],
+            activation=nn.ReLU,
         ),
     )
 

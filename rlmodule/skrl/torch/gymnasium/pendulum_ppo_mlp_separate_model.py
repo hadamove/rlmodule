@@ -13,18 +13,17 @@ from skrl.utils import set_seed
 
 import torch.nn as nn
 
-from rlmodule.skrl.torch import build_model
+from rlmodule.skrl.torch import RLModelCfg, build_model
 from rlmodule.skrl.torch.network import MlpCfg
 from rlmodule.skrl.torch.output_layer import DeterministicLayerCfg, GaussianLayerCfg
-from rlmodule.skrl.torch import RLModelCfg
 
 
 def get_model(env):
     """Instantiate the agent's models (function approximators)."""
 
     net_cfg = MlpCfg(
-        input_size=env.observation_space,
-        hidden_units=[64, 64],
+        input_states=env.observation_space,
+        hidden_units=[400, 300],
         activation=nn.ReLU,
     )
 
@@ -37,7 +36,7 @@ def get_model(env):
             device=device,
             output_layer=GaussianLayerCfg(
                 output_size=env.action_space,
-                output_scale = 2.0,
+                output_scale=2.0,
                 min_log_std=-1.2,
                 max_log_std=2,
                 initial_log_std=0.0,

@@ -22,8 +22,8 @@ def get_model(env):
     """Instantiate the agent's models (function approximators)."""
 
     net_cfg = MlpCfg(
-        input_size=env.observation_space,
-        hidden_units=[64, 64],
+        input_states=env.observation_space,
+        hidden_units=[400, 300],
         activation=nn.ReLU,
     )
 

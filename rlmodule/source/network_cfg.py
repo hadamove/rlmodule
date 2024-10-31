@@ -22,7 +22,10 @@ except ImportError:
 @configclass
 class NetworkCfg:
     module: Union[nn.Module, Callable[..., nn.Module]] = MISSING
-    input_size: Union[int, Sequence[int], gym.Space, gymnasium.Space] = None  # None means value should be inferred
+    input_states: Union[int, Sequence[int], gym.Space, gymnasium.Space] = None
+    """Observations passed to the network as an input."""
+    input_actions: Union[int, Sequence[int], gym.Space, gymnasium.Space] = None
+    """Action passed to the network as an input. If it is None, actions will not be passed."""
 
 
 @configclass
@@ -39,11 +42,6 @@ class RnnBaseCfg(NetworkCfg):
     num_layers: int = MISSING
     hidden_size: int = MISSING
     sequence_length: int = MISSING
-    """Sequence length to be used for training.
-    
-    
-    
-    """
 
 
 @configclass
