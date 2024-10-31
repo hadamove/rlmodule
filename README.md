@@ -59,6 +59,8 @@ tensorboard --logdir=runs/
 
 ## Update new version to PIP
 
+Change version name in pyproject.toml
+
 ```
 pip install build twine
 ```
