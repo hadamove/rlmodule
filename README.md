@@ -1,6 +1,7 @@
 # rlmodule
 Flexible reinforcement learning models instantiators library
 
+Function approximators simple, but still strong. RNN - GRU - LSTM / SAC
 
 Now it only supports skrl, but is intended to be library agnostic - in later expansion
 
@@ -42,13 +43,23 @@ Note: sometimes installation may fail, if there is a run/ dir present, you may n
 ```
 rm -rf runs
 ```
+
 ### Run chosen example
 ```
-python3 rlmodule/skrl/examples/gymnasium/skrl_gymnasium_pendulum.py
+python3 rlmodule/rlmodule/skrl/torch/gymnasium/pendulum_ppo_mlp_separate_model.py
 ```
+
+Optional: observe run results in Tensorboard
+
+```
+tensorboard --logdir=runs/
+```
+
 
 
 ## Update new version to PIP
+
+Change version name in pyproject.toml
 
 ```
 pip install build twine

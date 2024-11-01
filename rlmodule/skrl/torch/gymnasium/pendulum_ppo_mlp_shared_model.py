@@ -23,8 +23,8 @@ def get_model(env):
     """Instantiate the agent's models (function approximators)."""
 
     net_cfg = MlpCfg(
-        input_size=env.observation_space,
-        hidden_units=[64, 64],
+        input_states=env.observation_space,
+        hidden_units=[400, 300],
         activation=nn.ReLU,
     )
 
@@ -53,14 +53,7 @@ seed = 42
 set_seed(seed)
 
 # load and wrap the gymnasium environment.
-# note: the environment version may change depending on the gymnasium version
-try:
-    env = gym.vector.make("Pendulum-v1", num_envs=4, asynchronous=False)
-except (gym.error.DeprecatedEnv, gym.error.VersionNotFound):
-    env_id = [spec for spec in gym.envs.registry if spec.startswith("Pendulum-v-")][0]
-    print("Pendulum-v1 not found. Trying {}".format(env_id))
-    env = gym.vector.make(env_id, num_envs=4, asynchronous=False)
-
+env = gym.make_vec("Pendulum-v1", num_envs=4, vectorization_mode="sync")
 env.reset(seed=seed)
 env = GymnasiumWrapper(env)
 device = env.device

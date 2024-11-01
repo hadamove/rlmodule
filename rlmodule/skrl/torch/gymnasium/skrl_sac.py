@@ -1,9 +1,5 @@
 import gymnasium as gym
 
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-
 # import the skrl components to build the RL system
 from skrl.agents.torch.sac import SAC, SAC_DEFAULT_CONFIG
 from skrl.envs.wrappers.torch import wrap_env
@@ -12,6 +8,10 @@ from skrl.models.torch import DeterministicMixin, GaussianMixin, Model
 from skrl.trainers.torch import SequentialTrainer
 from skrl.utils import set_seed
 
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
 
 # seed for reproducibility
 set_seed()  # e.g. `set_seed(42)` for fixed seed
@@ -19,8 +19,17 @@ set_seed()  # e.g. `set_seed(42)` for fixed seed
 
 # define models (stochastic and deterministic models) using mixins
 class Actor(GaussianMixin, Model):
-    def __init__(self, observation_space, action_space, device, clip_actions=False,
-                 clip_log_std=True, min_log_std=-20, max_log_std=2, reduction="sum"):
+    def __init__(
+        self,
+        observation_space,
+        action_space,
+        device,
+        clip_actions=False,
+        clip_log_std=True,
+        min_log_std=-20,
+        max_log_std=2,
+        reduction="sum",
+    ):
         Model.__init__(self, observation_space, action_space, device)
         GaussianMixin.__init__(self, clip_actions, clip_log_std, min_log_std, max_log_std, reduction)
 
@@ -35,6 +44,7 @@ class Actor(GaussianMixin, Model):
         x = F.relu(self.linear_layer_2(x))
         # Pendulum-v1 action_space is -2 to 2
         return 2 * torch.tanh(self.action_layer(x)), self.log_std_parameter, {}
+
 
 class Critic(DeterministicMixin, Model):
     def __init__(self, observation_space, action_space, device, clip_actions=False):
@@ -52,13 +62,7 @@ class Critic(DeterministicMixin, Model):
 
 
 # load and wrap the gymnasium environment.
-# note: the environment version may change depending on the gymnasium version
-try:
-    env = gym.make("Pendulum-v1")
-except (gym.error.DeprecatedEnv, gym.error.VersionNotFound) as e:
-    env_id = [spec for spec in gym.envs.registry if spec.startswith("Pendulum-v")][0]
-    print("Pendulum-v1 not found. Trying {}".format(env_id))
-    env = gym.make(env_id)
+env = gym.make_vec("Pendulum-v1", num_envs=4, vectorization_mode="sync")
 env = wrap_env(env)
 
 device = env.device
@@ -96,12 +100,14 @@ cfg["experiment"]["write_interval"] = 75
 cfg["experiment"]["checkpoint_interval"] = 750
 cfg["experiment"]["directory"] = "runs/torch/Pendulum"
 
-agent = SAC(models=models,
-            memory=memory,
-            cfg=cfg,
-            observation_space=env.observation_space,
-            action_space=env.action_space,
-            device=device)
+agent = SAC(
+    models=models,
+    memory=memory,
+    cfg=cfg,
+    observation_space=env.observation_space,
+    action_space=env.action_space,
+    device=device,
+)
 
 
 # configure and instantiate the RL trainer

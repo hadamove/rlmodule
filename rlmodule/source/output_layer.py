@@ -11,7 +11,7 @@ from rlmodule.source.utils import get_space_size
 
 
 class OutputLayer(nn.Module):
-    def __init__(self, device: Union[str, torch.device], input_size: int, cfg):
+    def __init__(self, device: Union[str, torch.device], input_states: int, cfg):
         """Base class for OutputLayer class hierarchy."""
         super().__init__()
         self.device = device
@@ -26,26 +26,26 @@ class OutputLayer(nn.Module):
             self._clip_actions_min = torch.tensor(cfg.output_size.low, device=self.device, dtype=torch.float32)
             self._clip_actions_max = torch.tensor(cfg.output_size.high, device=self.device, dtype=torch.float32)
 
-        self._input_size = input_size
+        self._input_states = input_states
         self._output_size = get_space_size(cfg.output_size)
 
         self._output_scale = cfg.output_scale
 
 
 class GaussianLayer(OutputLayer):
-    def __init__(self, device: Union[str, torch.device], input_size: int, cfg):
+    def __init__(self, device: Union[str, torch.device], input_states: int, cfg):
         """Gaussian output layer
 
         :param device: Device on which a tensor/array is or will be allocated
         :type device: str or torch.device
-        :param input_size
+        :param input_states
         :type int
         :param cfg: Configuration of Gaussian output layer
         :type OutputLayerCfg
 
         :raises ValueError: If the reduction method is not valid
         """
-        super().__init__(device, input_size, cfg)
+        super().__init__(device, input_states, cfg)
 
         self._clamped_log_std = None
         self._num_samples = None
@@ -59,10 +59,10 @@ class GaussianLayer(OutputLayer):
             else torch.sum if cfg.reduction == "sum" else torch.prod if cfg.reduction == "prod" else None
         )
 
-        self._net = nn.Sequential(nn.Linear(self._input_size, self._output_size), cfg.output_activation())
+        self._net = nn.Sequential(nn.Linear(self._input_states, self._output_size), cfg.output_activation())
 
         std_cfg = cfg.std_module
-        self._std_module = std_cfg.class_type(device, input_size, self._output_size, std_cfg)
+        self._std_module = std_cfg.class_type(device, input_states, self._output_size, std_cfg)
 
     def forward(self, input, taken_actions, outputs_dict):
         """Act stochastically in response to the state of the environment
@@ -186,20 +186,20 @@ class GaussianLayer(OutputLayer):
 
 
 class DeterministicLayer(OutputLayer):
-    def __init__(self, device: Union[str, torch.device], input_size: int, cfg):
+    def __init__(self, device: Union[str, torch.device], input_states: int, cfg):
         """Deterministic output layer
 
         :param device: Device on which a tensor/array is or will be allocated
         :type device: str or torch.device
-        :param input_size
+        :param input_states
         :type int
         :param cfg: Configuration of Gaussian output layer
         :type OutputLayerCfg
         """
 
-        super().__init__(device, input_size, cfg)
+        super().__init__(device, input_states, cfg)
 
-        self._net = nn.Sequential(nn.Linear(input_size, cfg.output_size), cfg.output_activation())
+        self._net = nn.Sequential(nn.Linear(input_states, cfg.output_size), cfg.output_activation())
 
     def forward(self, input, taken_actions, outputs_dict):
         """Act deterministically in response to the state of the environment

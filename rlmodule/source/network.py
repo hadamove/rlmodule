@@ -1,8 +1,6 @@
 import torch
 import torch.nn as nn
 
-from rlmodule.source.utils import get_space_size
-
 
 class MLP(nn.Module):
     """Configurable multilayer perceptron module.
@@ -12,7 +10,7 @@ class MLP(nn.Module):
     Example of use:
 
         cfg = MlpCfg(
-            input_size = 517,
+            input_states = 517,
             hidden_units = [2048, 1024, 1024, 512],
             activation = nn.ELU,
         )
@@ -22,11 +20,9 @@ class MLP(nn.Module):
     def __init__(self, cfg):
         super().__init__()
 
-        cfg.input_size = get_space_size(cfg.input_size)
-
         # input layer
         layers = [
-            nn.Linear(cfg.input_size, cfg.hidden_units[0]),
+            nn.Linear(cfg.input_states, cfg.hidden_units[0]),
             cfg.activation(),
         ]
 
@@ -58,8 +54,6 @@ class RnnBase(nn.Module):
         self.hidden_size = cfg.hidden_size
         self.sequence_length = cfg.sequence_length
 
-        cfg.input_size = get_space_size(cfg.input_size)
-
 
 class LSTM(RnnBase):
     """Configurable LSTM module.
@@ -72,7 +66,7 @@ class LSTM(RnnBase):
     Example of use:
 
         cfg = LstmCfg(
-            input_size = 517,
+            input_states = 517,
             num_envs = 2048,
             num_layers = 1,
             hidden_size = 512 + 256,
@@ -85,7 +79,7 @@ class LSTM(RnnBase):
         super().__init__(cfg)
 
         self.lstm = nn.LSTM(
-            input_size=cfg.input_size,
+            input_size=cfg.input_states,
             hidden_size=cfg.hidden_size,
             num_layers=cfg.num_layers,
             batch_first=True,
@@ -241,7 +235,7 @@ class RNN(RnnModule):
     Example of use:
 
         cfg = RnnCfg(
-            input_size = 517,
+            input_states = 517,
             num_envs = 2048,
             num_layers = 1,
             hidden_size = 512 + 256,
@@ -254,7 +248,7 @@ class RNN(RnnModule):
         super().__init__(cfg)
 
         self.rnn = nn.RNN(
-            input_size=cfg.input_size,
+            input_size=cfg.input_states,
             hidden_size=cfg.hidden_size,
             num_layers=cfg.num_layers,
             batch_first=True,
@@ -272,7 +266,7 @@ class GRU(RnnModule):
     Example of use:
 
         cfg = GruCfg(
-            input_size = 517,
+            input_states = 517,
             num_envs = 2048,
             num_layers = 1,
             hidden_size = 512 + 256,
@@ -285,7 +279,7 @@ class GRU(RnnModule):
         super().__init__(cfg)
 
         self.rnn = nn.GRU(
-            input_size=cfg.input_size,
+            input_size=cfg.input_states,
             hidden_size=cfg.hidden_size,
             num_layers=cfg.num_layers,
             batch_first=True,
@@ -304,7 +298,7 @@ class RnnMlp(RnnBase):
     1) Example of use (with RNN module):
 
         cfg = RnnMlpCfg(
-                input_size = 517,
+                input_states = 517,
                 rnn = RnnCfg(
                     num_envs = 2048,
                     num_layers = 1,
@@ -321,7 +315,7 @@ class RnnMlp(RnnBase):
     2) Example of use (with GRU module):
 
         cfg = RnnMlpCfg(
-                input_size = 517,
+                input_states = 517,
                 rnn = GruCfg(
                     num_envs = 2048,
                     num_layers = 1,
@@ -338,7 +332,7 @@ class RnnMlp(RnnBase):
     3) Example of use (with LSTM module):
 
         cfg = RnnMlpCfg(
-                input_size = 517,
+                input_states = 517,
                 rnn = LstmCfg(
                     num_envs = 2048,
                     num_layers = 1,
@@ -355,10 +349,9 @@ class RnnMlp(RnnBase):
 
     def __init__(self, cfg):
         super().__init__(cfg.rnn)
-        cfg.input_size = get_space_size(cfg.input_size)
-        cfg.rnn.input_size = cfg.input_size
+        cfg.rnn.input_states = cfg.input_states
         self.rnn = cfg.rnn.module(cfg.rnn)
-        cfg.mlp.input_size = self.hidden_size
+        cfg.mlp.input_states = self.hidden_size
         self.mlp = MLP(cfg.mlp)
 
     def forward(self, states, terminated, rnn_inputs):
@@ -379,7 +372,7 @@ class RnnMlpWithForwardedInput(RnnBase):
     1) Example of use (with RNN module):
 
         cfg = RnnMlpCfg(
-                input_size = 517,
+                input_states = 517,
                 module = RnnMlpWithForwardedInput,
                 rnn = RnnCfg(
                     num_envs = 2048,
@@ -397,7 +390,7 @@ class RnnMlpWithForwardedInput(RnnBase):
     2) Example of use (with GRU module):
 
         cfg = RnnMlpCfg(
-                input_size = 517,
+                input_states = 517,
                 module = RnnMlpWithForwardedInput,
                 rnn = GruCfg(
                     num_envs = 2048,
@@ -415,7 +408,7 @@ class RnnMlpWithForwardedInput(RnnBase):
     3) Example of use (with LSTM module):
 
         cfg = RnnMlpCfg(
-                input_size = 517,
+                input_states = 517,
                 module = RnnMlpWithForwardedInput,
                 rnn = LstmCfg(
                     num_envs = 2048,
@@ -437,10 +430,9 @@ class RnnMlpWithForwardedInput(RnnBase):
 
     def __init__(self, cfg):
         super().__init__(cfg.rnn)
-        cfg.input_size = get_space_size(cfg.input_size)
-        cfg.rnn.input_size = cfg.input_size
+        cfg.rnn.input_states = cfg.input_states
         self.rnn = cfg.rnn.module(cfg.rnn)
-        cfg.mlp.input_size = cfg.input_size + self.hidden_size
+        cfg.mlp.input_states = cfg.input_states + self.hidden_size
         self.mlp = MLP(cfg.mlp)
 
     def forward(self, states, terminated, rnn_inputs):
@@ -578,7 +570,7 @@ class RnnMlpWithForwardedInput(RnnBase):
 
 #         self.cnns = nn.ModuleList([CNN(cnn_params) for _ in range(self.cnn_number)])
 
-#         mlp_params['input_size'] = self.prefix_length + self.cnn_number * get_output_size(
+#         mlp_params['input_states'] = self.prefix_length + self.cnn_number * get_output_size(
 #             self.cnns[0], self.input_shape
 #         )
 
@@ -638,13 +630,13 @@ class RnnMlpWithForwardedInput(RnnBase):
 
 #         self.cnns = nn.ModuleList([CNN(cnn_params) for _ in range(self.cnn_number)])
 
-#         rnn_params['input_size'] = self.prefix_length + self.cnn_number * get_output_size(
+#         rnn_params['input_states'] = self.prefix_length + self.cnn_number * get_output_size(
 #             self.cnns[0], self.input_shape
 #         )
 
 #         self.rnn = rnn_class(rnn_params)
 
-#         mlp_params['input_size'] = self.rnn.hidden_size + self.rnn.input_size
+#         mlp_params['input_states'] = self.rnn.hidden_size + self.rnn.input_states
 
 #         self.mlp = MLP(mlp_params)
 
