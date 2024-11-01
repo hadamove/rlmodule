@@ -59,7 +59,7 @@ try:
 except (gym.error.DeprecatedEnv, gym.error.VersionNotFound):
     env_id = [spec for spec in gym.envs.registry if spec.startswith("Pendulum-v-")][0]
     print("Pendulum-v1 not found. Trying {}".format(env_id))
-    env = gym.vector.make(env_id, num_envs=32, asynchronous=False)
+    env = gym.vector.make(env_id, num_envs=4, asynchronous=False)
 
 env.reset(seed=seed)
 env = GymnasiumWrapper(env)
