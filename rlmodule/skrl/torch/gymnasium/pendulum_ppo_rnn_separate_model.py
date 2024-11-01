@@ -13,27 +13,26 @@ from skrl.utils import set_seed
 
 import torch.nn as nn
 
-from rlmodule.skrl.torch import build_model
+from rlmodule.skrl.torch import RLModelCfg, build_model
 from rlmodule.skrl.torch.network import MlpCfg
 from rlmodule.skrl.torch.output_layer import DeterministicLayerCfg, GaussianLayerCfg
 from rlmodule.source.network_cfg import RnnCfg, RnnMlpCfg
-from rlmodule.skrl.torch import RLModelCfg
 
 
 def get_model(env):
     """Instantiate the agent's models (function approximators)."""
 
     net_cfg = RnnMlpCfg(
-        input_size = env.observation_space,
-        rnn = RnnCfg(
-            num_envs = env.num_envs,
-            num_layers = 1,
-            hidden_size = 32,
-            sequence_length = 16,
+        input_states=env.observation_space,
+        rnn=RnnCfg(
+            num_envs=env.num_envs,
+            num_layers=1,
+            hidden_size=32,
+            sequence_length=16,
         ),
-        mlp = MlpCfg(
-            hidden_units = [64, 64],
-            activation = nn.ReLU,
+        mlp=MlpCfg(
+            hidden_units=[64, 64],
+            activation=nn.ReLU,
         ),
     )
 
@@ -43,7 +42,7 @@ def get_model(env):
             device=device,
             output_layer=GaussianLayerCfg(
                 output_size=env.action_space,
-                output_scale = 2.0,
+                output_scale=2.0,
                 min_log_std=-1.2,
                 max_log_std=2,
                 initial_log_std=0.0,
@@ -69,14 +68,7 @@ seed = 42
 set_seed(seed)
 
 # load and wrap the gymnasium environment.
-# note: the environment version may change depending on the gymnasium version
-try:
-    env = gym.vector.make("Pendulum-v1", num_envs=4, asynchronous=False)
-except (gym.error.DeprecatedEnv, gym.error.VersionNotFound):
-    env_id = [spec for spec in gym.envs.registry if spec.startswith("Pendulum-v-")][0]
-    print("Pendulum-v1 not found. Trying {}".format(env_id))
-    env = gym.vector.make(env_id, num_envs=4, asynchronous=False)
-
+env = gym.make_vec("Pendulum-v1", num_envs=4, vectorization_mode="sync")
 env.reset(seed=seed)
 env = GymnasiumWrapper(env)
 device = env.device

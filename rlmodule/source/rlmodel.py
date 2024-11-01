@@ -3,6 +3,8 @@ from typing import Any, Mapping, Optional, Tuple, Union
 import torch
 import torch.nn as nn
 
+from rlmodule import logger
+
 from .model import Model
 
 
@@ -23,7 +25,10 @@ class RLModel(Model):
         self, inputs: Mapping[str, Union[torch.Tensor, Any]], role: str = ""
     ) -> Tuple[torch.Tensor, Union[torch.Tensor, None], Mapping[str, Union[torch.Tensor, Any]]]:
 
-        states = inputs["states"]
+        if self._input_actions:
+            states = torch.cat((inputs["states"], inputs["taken_actions"]), dim=1)
+        else:
+            states = inputs["states"]
 
         if self._rnn:
             output, output_dict = self._net(states, inputs.get("terminated", None), inputs["rnn"])
@@ -46,6 +51,9 @@ class SharedRLModel(Model):
         """Shared Reinforcement learning model."""
 
         super().__init__(device, network)
+
+        if self._input_actions:
+            logger.critical("Action inputs will not be propagated for the shared model.")
 
         self._policy_output_layer = policy_output_layer
         self._value_output_layer = value_output_layer

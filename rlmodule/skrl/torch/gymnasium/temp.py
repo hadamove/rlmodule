@@ -23,7 +23,7 @@
 
 # # def example_module(cfg):
 # #     cfg = RnnMlpCfg(
-# #         input_size = env.observation_space,
+# #         input_states = env.observation_space,
 # #         rnn = LstmCfg(
 # #             num_envs = env.num_envs,
 # #             num_layers = 1,
@@ -42,14 +42,14 @@
 #     # instantiate the agent's models (function approximators).
 
 #     net_cfg = MlpCfg(
-#         input_size=env.observation_space,
+#         input_states=env.observation_space,
 #         hidden_units=[64, 64, 64],
 #         activation=nn.ReLU,
 #     )
 
 #     # 2
 #     # net_cfg = LstmCfg(
-#     #     input_size = env.observation_space,
+#     #     input_states = env.observation_space,
 #     #     num_envs = env.num_envs,
 #     #     num_layers = 1,
 #     #     hidden_size = 32,
@@ -58,7 +58,7 @@
 
 #     # 3
 #     # net_cfg = RnnMlpCfg(
-#     #     input_size = env.observation_space,
+#     #     input_states = env.observation_space,
 #     #     rnn = LstmCfg(
 #     #         num_envs = env.num_envs,
 #     #         num_layers = 1,
@@ -73,7 +73,7 @@
 
 #     # 3.5
 #     # net_cfg = RnnMlpCfg(
-#     #     input_size = env.observation_space,
+#     #     input_states = env.observation_space,
 #     #     module = RnnMlpWithForwardedInput,
 #     #     rnn = LstmCfg(
 #     #         num_envs = env.num_envs,
@@ -88,7 +88,7 @@
 #     # )
 
 #     # 4
-#     # net_cfg = NetworkCfg( input_size = env.observation_space,
+#     # net_cfg = NetworkCfg( input_states = env.observation_space,
 #     #                       module = example_module)
 
 #     # variant IV - all config
@@ -112,7 +112,7 @@
 # # TODO Update separate model to configclass
 # def get_separated_model(env):
 #     net_cfg = MlpCfg(
-#         input_size=env.observation_space,
+#         input_states=env.observation_space,
 #         hidden_units=[64, 64, 64],
 #         activation=nn.ReLU,
 #     )
@@ -144,11 +144,11 @@
 # # load and wrap the gymnasium environment.
 # # note: the environment version may change depending on the gymnasium version
 # try:
-#     env = gym.vector.make("Pendulum-v1", num_envs=4, asynchronous=False)
+#     env = gym.make("Pendulum-v1", num_envs=4, asynchronous=False)
 # except (gym.error.DeprecatedEnv, gym.error.VersionNotFound) as e:
 #     env_id = [spec for spec in gym.envs.registry if spec.startswith("Pendulum-v")][0]
 #     print("Pendulum-v1 not found. Trying {}".format(env_id))
-#     env = gym.vector.make(env_id, num_envs=4, asynchronous=False)
+#     env = gym.make(env_id, num_envs=4, asynchronous=False)
 
 # env.reset(seed=seed)
 

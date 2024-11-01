@@ -25,6 +25,10 @@ class Model(torch.nn.Module):
         self._lstm = contains_rnn_module(self, nn.LSTM)
         self._rnn = contains_rnn_module(self, (nn.LSTM, nn.RNN, nn.GRU))
 
+        self._input_actions = False
+        if hasattr(network, "input_actions"):
+            self._input_actions = network.input_actions
+
         logger.info(f"model contains rnn:  {self._rnn}")
         logger.info(f"model contains lstm: {self._lstm}")
 
@@ -43,14 +47,12 @@ class Model(torch.nn.Module):
         """Return true if there is an LSTM submodule"""
         return self._lstm
 
-    
     def _get_policy_output_layer(self):
-        if hasattr(self, '_policy_output_layer'):
+        if hasattr(self, "_policy_output_layer"):
             return self._policy_output_layer  # SharedModel
         else:
             return self._output_layer  # SeparatedModels
-    
-    
+
     def get_entropy(self, role: str = "") -> torch.Tensor:
         """Compute and return the entropy of the model
 
@@ -191,10 +193,10 @@ class Model(torch.nn.Module):
                     start = end
                 return output
         raise ValueError(f"Space type {type(space)} not supported")
-    
-    def random_act(self,
-                   inputs: Mapping[str, Union[torch.Tensor, Any]],
-                   role: str = "") -> Tuple[torch.Tensor, None, Mapping[str, Union[torch.Tensor, Any]]]:
+
+    def random_act(
+        self, inputs: Mapping[str, Union[torch.Tensor, Any]], role: str = ""
+    ) -> Tuple[torch.Tensor, None, Mapping[str, Union[torch.Tensor, Any]]]:
         """Act randomly according to the action space
 
         :param inputs: Model inputs. The most common keys are:
@@ -211,19 +213,27 @@ class Model(torch.nn.Module):
         :rtype: tuple of torch.Tensor, None, and dict
         """
         # discrete action space (Discrete)
-        if issubclass(type(self.action_space), gym.spaces.Discrete) or issubclass(type(self.action_space), gymnasium.spaces.Discrete):
+        if issubclass(type(self.action_space), gym.spaces.Discrete) or issubclass(
+            type(self.action_space), gymnasium.spaces.Discrete
+        ):
             return torch.randint(self.action_space.n, (inputs["states"].shape[0], 1), device=self.device), None, {}
         # continuous action space (Box)
-        elif issubclass(type(self.action_space), gym.spaces.Box) or issubclass(type(self.action_space), gymnasium.spaces.Box):
+        elif issubclass(type(self.action_space), gym.spaces.Box) or issubclass(
+            type(self.action_space), gymnasium.spaces.Box
+        ):
             if self._random_distribution is None:
                 self._random_distribution = torch.distributions.uniform.Uniform(
                     low=torch.tensor(self.action_space.low[0], device=self.device, dtype=torch.float32),
-                    high=torch.tensor(self.action_space.high[0], device=self.device, dtype=torch.float32))
+                    high=torch.tensor(self.action_space.high[0], device=self.device, dtype=torch.float32),
+                )
 
-            return self._random_distribution.sample(sample_shape=(inputs["states"].shape[0], self.num_actions)), None, {}
+            return (
+                self._random_distribution.sample(sample_shape=(inputs["states"].shape[0], self.num_actions)),
+                None,
+                {},
+            )
         else:
             raise NotImplementedError(f"Action space type ({type(self.action_space)}) not supported")
-
 
     def init_parameters(self, method_name: str = "normal_", *args, **kwargs) -> None:
         """Initialize the model parameters according to the specified method name

@@ -1,9 +1,5 @@
 import gymnasium as gym
 
-import numpy as np
-import torch
-import torch.nn as nn
-
 # import the skrl components to build the RL system
 from skrl.agents.torch.ppo import PPO_DEFAULT_CONFIG
 from skrl.agents.torch.ppo import PPO_RNN as PPO
@@ -15,6 +11,10 @@ from skrl.resources.schedulers.torch import KLAdaptiveRL
 from skrl.trainers.torch import SequentialTrainer
 from skrl.utils import set_seed
 
+import numpy as np
+import torch
+import torch.nn as nn
+
 
 # seed for reproducibility
 set_seed()  # e.g. `set_seed(42)` for fixed seed
@@ -22,9 +22,21 @@ set_seed()  # e.g. `set_seed(42)` for fixed seed
 
 # define models (stochastic and deterministic models) using mixins
 class Policy(GaussianMixin, Model):
-    def __init__(self, observation_space, action_space, device, clip_actions=False,
-                 clip_log_std=True, min_log_std=-20, max_log_std=2, reduction="sum",
-                 num_envs=1, num_layers=1, hidden_size=64, sequence_length=128):
+    def __init__(
+        self,
+        observation_space,
+        action_space,
+        device,
+        clip_actions=False,
+        clip_log_std=True,
+        min_log_std=-20,
+        max_log_std=2,
+        reduction="sum",
+        num_envs=1,
+        num_layers=1,
+        hidden_size=64,
+        sequence_length=128,
+    ):
         Model.__init__(self, observation_space, action_space, device)
         GaussianMixin.__init__(self, clip_actions, clip_log_std, min_log_std, max_log_std, reduction)
 
@@ -33,20 +45,24 @@ class Policy(GaussianMixin, Model):
         self.hidden_size = hidden_size  # Hout
         self.sequence_length = sequence_length
 
-        self.rnn = nn.RNN(input_size=self.num_observations,
-                          hidden_size=self.hidden_size,
-                          num_layers=self.num_layers,
-                          batch_first=True)  # batch_first -> (batch, sequence, features)
+        self.rnn = nn.RNN(
+            input_states=self.num_observations,
+            hidden_size=self.hidden_size,
+            num_layers=self.num_layers,
+            batch_first=True,
+        )  # batch_first -> (batch, sequence, features)
 
-        self.net = nn.Sequential(nn.Linear(self.hidden_size, 64),
-                                 nn.ReLU(),
-                                 nn.Linear(64, self.num_actions))
+        self.net = nn.Sequential(nn.Linear(self.hidden_size, 64), nn.ReLU(), nn.Linear(64, self.num_actions))
         self.log_std_parameter = nn.Parameter(torch.zeros(self.num_actions))
 
     def get_specification(self):
         # batch size (N) is the number of envs
-        return {"rnn": {"sequence_length": self.sequence_length,
-                        "sizes": [(self.num_layers, self.num_envs, self.hidden_size)]}}  # hidden states (D ∗ num_layers, N, Hout)
+        return {
+            "rnn": {
+                "sequence_length": self.sequence_length,
+                "sizes": [(self.num_layers, self.num_envs, self.hidden_size)],
+            }
+        }  # hidden states (D ∗ num_layers, N, Hout)
 
     def compute(self, inputs, role):
         states = inputs["states"]
@@ -55,21 +71,29 @@ class Policy(GaussianMixin, Model):
 
         # training
         if self.training:
-            rnn_input = states.view(-1, self.sequence_length, states.shape[-1])  # (N, L, Hin): N=batch_size, L=sequence_length
-            hidden_states = hidden_states.view(self.num_layers, -1, self.sequence_length, hidden_states.shape[-1])  # (D * num_layers, N, L, Hout)
+            rnn_input = states.view(
+                -1, self.sequence_length, states.shape[-1]
+            )  # (N, L, Hin): N=batch_size, L=sequence_length
+            hidden_states = hidden_states.view(
+                self.num_layers, -1, self.sequence_length, hidden_states.shape[-1]
+            )  # (D * num_layers, N, L, Hout)
             # get the hidden states corresponding to the initial sequence
-            hidden_states = hidden_states[:,:,0,:].contiguous()  # (D * num_layers, N, Hout)
+            hidden_states = hidden_states[:, :, 0, :].contiguous()  # (D * num_layers, N, Hout)
 
             # reset the RNN state in the middle of a sequence
             if terminated is not None and torch.any(terminated):
                 rnn_outputs = []
                 terminated = terminated.view(-1, self.sequence_length)
-                indexes = [0] + (terminated[:,:-1].any(dim=0).nonzero(as_tuple=True)[0] + 1).tolist() + [self.sequence_length]
+                indexes = (
+                    [0]
+                    + (terminated[:, :-1].any(dim=0).nonzero(as_tuple=True)[0] + 1).tolist()
+                    + [self.sequence_length]
+                )
 
                 for i in range(len(indexes) - 1):
                     i0, i1 = indexes[i], indexes[i + 1]
-                    rnn_output, hidden_states = self.rnn(rnn_input[:,i0:i1,:], hidden_states)
-                    hidden_states[:, (terminated[:,i1-1]), :] = 0
+                    rnn_output, hidden_states = self.rnn(rnn_input[:, i0:i1, :], hidden_states)
+                    hidden_states[:, (terminated[:, i1 - 1]), :] = 0
                     rnn_outputs.append(rnn_output)
 
                 rnn_output = torch.cat(rnn_outputs, dim=1)
@@ -87,9 +111,19 @@ class Policy(GaussianMixin, Model):
         # Pendulum-v1 action_space is -2 to 2
         return 2 * torch.tanh(self.net(rnn_output)), self.log_std_parameter, {"rnn": [hidden_states]}
 
+
 class Value(DeterministicMixin, Model):
-    def __init__(self, observation_space, action_space, device, clip_actions=False,
-                 num_envs=1, num_layers=1, hidden_size=64, sequence_length=128):
+    def __init__(
+        self,
+        observation_space,
+        action_space,
+        device,
+        clip_actions=False,
+        num_envs=1,
+        num_layers=1,
+        hidden_size=64,
+        sequence_length=128,
+    ):
         Model.__init__(self, observation_space, action_space, device)
         DeterministicMixin.__init__(self, clip_actions)
 
@@ -98,19 +132,23 @@ class Value(DeterministicMixin, Model):
         self.hidden_size = hidden_size  # Hout
         self.sequence_length = sequence_length
 
-        self.rnn = nn.RNN(input_size=self.num_observations,
-                          hidden_size=self.hidden_size,
-                          num_layers=self.num_layers,
-                          batch_first=True)  # batch_first -> (batch, sequence, features)
+        self.rnn = nn.RNN(
+            input_states=self.num_observations,
+            hidden_size=self.hidden_size,
+            num_layers=self.num_layers,
+            batch_first=True,
+        )  # batch_first -> (batch, sequence, features)
 
-        self.net = nn.Sequential(nn.Linear(self.hidden_size, 64),
-                                 nn.ReLU(),
-                                 nn.Linear(64, 1))
+        self.net = nn.Sequential(nn.Linear(self.hidden_size, 64), nn.ReLU(), nn.Linear(64, 1))
 
     def get_specification(self):
         # batch size (N) is the number of envs
-        return {"rnn": {"sequence_length": self.sequence_length,
-                        "sizes": [(self.num_layers, self.num_envs, self.hidden_size)]}}  # hidden states (D ∗ num_layers, N, Hout)
+        return {
+            "rnn": {
+                "sequence_length": self.sequence_length,
+                "sizes": [(self.num_layers, self.num_envs, self.hidden_size)],
+            }
+        }  # hidden states (D ∗ num_layers, N, Hout)
 
     def compute(self, inputs, role):
         states = inputs["states"]
@@ -119,22 +157,30 @@ class Value(DeterministicMixin, Model):
 
         # training
         if self.training:
-            rnn_input = states.view(-1, self.sequence_length, states.shape[-1])  # (N, L, Hin): N=batch_size, L=sequence_length
+            rnn_input = states.view(
+                -1, self.sequence_length, states.shape[-1]
+            )  # (N, L, Hin): N=batch_size, L=sequence_length
 
-            hidden_states = hidden_states.view(self.num_layers, -1, self.sequence_length, hidden_states.shape[-1])  # (D * num_layers, N, L, Hout)
+            hidden_states = hidden_states.view(
+                self.num_layers, -1, self.sequence_length, hidden_states.shape[-1]
+            )  # (D * num_layers, N, L, Hout)
             # get the hidden states corresponding to the initial sequence
-            hidden_states = hidden_states[:,:,0,:].contiguous()  # (D * num_layers, N, Hout)
+            hidden_states = hidden_states[:, :, 0, :].contiguous()  # (D * num_layers, N, Hout)
 
             # reset the RNN state in the middle of a sequence
             if terminated is not None and torch.any(terminated):
                 rnn_outputs = []
                 terminated = terminated.view(-1, self.sequence_length)
-                indexes = [0] + (terminated[:,:-1].any(dim=0).nonzero(as_tuple=True)[0] + 1).tolist() + [self.sequence_length]
+                indexes = (
+                    [0]
+                    + (terminated[:, :-1].any(dim=0).nonzero(as_tuple=True)[0] + 1).tolist()
+                    + [self.sequence_length]
+                )
 
                 for i in range(len(indexes) - 1):
                     i0, i1 = indexes[i], indexes[i + 1]
-                    rnn_output, hidden_states = self.rnn(rnn_input[:,i0:i1,:], hidden_states)
-                    hidden_states[:, (terminated[:,i1-1]), :] = 0
+                    rnn_output, hidden_states = self.rnn(rnn_input[:, i0:i1, :], hidden_states)
+                    hidden_states[:, (terminated[:, i1 - 1]), :] = 0
                     rnn_outputs.append(rnn_output)
 
                 rnn_output = torch.cat(rnn_outputs, dim=1)
@@ -158,10 +204,11 @@ class NoVelocityWrapper(gym.ObservationWrapper):
         # observation: x, y, angular velocity
         return observation * np.array([1, 1, 0])
 
+
 gym.envs.registration.register(id="PendulumNoVel-v1", entry_point=lambda: NoVelocityWrapper(gym.make("Pendulum-v1")))
 
 # load and wrap the gymnasium environment
-env = gym.vector.make("PendulumNoVel-v1", num_envs=4, asynchronous=False)
+env = gym.make("PendulumNoVel-v1", num_envs=4, asynchronous=False)
 env = wrap_env(env)
 
 device = env.device
@@ -206,12 +253,14 @@ cfg["experiment"]["write_interval"] = 500
 cfg["experiment"]["checkpoint_interval"] = 5000
 cfg["experiment"]["directory"] = "runs/torch/PendulumNoVel"
 
-agent = PPO(models=models,
-            memory=memory,
-            cfg=cfg,
-            observation_space=env.observation_space,
-            action_space=env.action_space,
-            device=device)
+agent = PPO(
+    models=models,
+    memory=memory,
+    cfg=cfg,
+    observation_space=env.observation_space,
+    action_space=env.action_space,
+    device=device,
+)
 
 
 # configure and instantiate the RL trainer
