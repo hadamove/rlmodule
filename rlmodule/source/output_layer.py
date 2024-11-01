@@ -61,6 +61,7 @@ class GaussianLayer(OutputLayer):
 
         self._net = nn.Sequential(nn.Linear(self._input_states, self._output_size), cfg.output_activation())
 
+        # self._log_parameter = nn.Parameter(cfg.std_module.initial_log_std * torch.ones(self._output_size))
         std_cfg = cfg.std_module
         self._std_module = std_cfg.class_type(device, input_states, self._output_size, std_cfg)
 
@@ -92,6 +93,7 @@ class GaussianLayer(OutputLayer):
             input
         )  # TODO in skrl example the self._cfg.output_scale * is done here. -> why understand this (is it correct).
 
+        # self._clamped_log_std = self._std_module.clip_std(self._log_parameter)
         self._clamped_log_std = self._std_module.forward(input)
         self._num_samples = mean_actions.shape[0]
 

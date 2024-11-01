@@ -1,6 +1,5 @@
 from typing import Union
 
-from abc import ABC, abstractmethod
 from functools import reduce
 from itertools import repeat
 
@@ -8,12 +7,12 @@ import torch
 import torch.nn as nn
 
 
-class StdModule(ABC):
+class StdModule(nn.Module):
     """Base class that defines interface for standard deviation computation in GaussianLayer."""
 
-    @abstractmethod
     def __init__(self, device: Union[str, torch.device], input_size: int, output_size: int, cfg):
         """Initialize Standard deviation computation module."""
+        super().__init__()
         self.device = device
 
         self._input_size = input_size
@@ -23,7 +22,6 @@ class StdModule(ABC):
         self._log_std_min = cfg.min_log_std
         self._log_std_max = cfg.max_log_std
 
-    @abstractmethod
     def forward(self, input: torch.Tensor) -> torch.Tensor:
         """Compute standard deviation from layer input."""
         raise NotImplementedError(f"Forward method is not implemented for {type(self)}")
@@ -42,7 +40,7 @@ class ParameterStdModule(StdModule):
         """Initialize Standard deviation computation module."""
         super().__init__(device, input_size, output_size, cfg)
 
-        self._log_parameter = nn.Parameter(cfg.initial_log_std * torch.ones(self._output_size, device=device))
+        self._log_parameter = nn.Parameter(cfg.initial_log_std * torch.ones(self._output_size))
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
         """Compute standard deviation from layer input."""
