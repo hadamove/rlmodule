@@ -31,7 +31,6 @@ class OutputLayer(nn.Module):
 
         self._output_scale = cfg.output_scale
 
-# TODO(TM): Add Std modularization
 class GaussianLayer(OutputLayer):
     def __init__(self, device: Union[str, torch.device], input_size: int, cfg):
         """Gaussian output layer
@@ -65,7 +64,8 @@ class GaussianLayer(OutputLayer):
 
         self._net = nn.Sequential(nn.Linear(self._input_size, self._output_size), cfg.output_activation())
 
-        self._log_std_parameter = nn.Parameter(cfg.initial_log_std * torch.ones(self._output_size))
+        std_cfg = cfg.std_module
+        self._std_module = std_cfg.class_type(device, input_size, self._output_size, std_cfg)
 
     def forward(self, input, taken_actions, outputs_dict):
         """Act stochastically in response to the state of the environment
@@ -93,7 +93,7 @@ class GaussianLayer(OutputLayer):
         """
         mean_actions = self._output_scale * self._net(input)  # TODO in skrl example the self._cfg.output_scale * is done here. -> why understand this (is it correct).
 
-        log_std = self._log_std_parameter
+        log_std = self._std_module.forward(input)
 
         # clamp log standard deviations
         if self._clip_log_std:
