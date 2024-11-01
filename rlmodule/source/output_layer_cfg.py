@@ -7,7 +7,8 @@ import gymnasium
 import torch.nn as nn
 
 from rlmodule.source.output_layer import DeterministicLayer, GaussianLayer
-from rlmodule.source.std_module_cfg import StdModuleCfg, ParameterStdModuleCfg, NNStdModuleCfg, CombinedStdModuleCfg
+from rlmodule.source.std_module_cfg import CombinedStdModuleCfg, NNStdModuleCfg, ParameterStdModuleCfg, StdModuleCfg
+
 
 # use isaac-lab native configclass if available to avoid double declaration
 try:
@@ -43,18 +44,6 @@ class GaussianLayerCfg(OutputLayerCfg):
     class_type: type[GaussianLayer] = GaussianLayer
     output_activation: type[nn.Module] = nn.Tanh
 
-    clip_log_std: bool = True
-    """Flag to indicate whether the log standard deviations should be clipped"""
-
-    min_log_std: float = -20.0
-    """Minimum value of the log standard deviation."""
-
-    max_log_std: float = 2.0
-    """Maximum value of the log standard deviation"""
-
-    initial_log_std: float = 0.0 # TODO remove
-    """Initial value for the log standard deviation"""
-
     reduction: str = "sum"
     """Reduction method for returning the log probability density function: (default: ``"sum"``).
     Supported values are ``"mean"``, ``"sum"``, ``"prod"`` and ``"none"``. If "``none"``, the log probability density
@@ -62,10 +51,10 @@ class GaussianLayerCfg(OutputLayerCfg):
     """
 
     std_module: StdModuleCfg = CombinedStdModuleCfg(
-        combination_method='min',
-        combined_modules = [NNStdModuleCfg(), ParameterStdModuleCfg()],
+        combination_method="max",
+        combined_modules=[NNStdModuleCfg(), ParameterStdModuleCfg()],
         combination_constants=[0.5, 1.0],
-    )# NNStdModuleCfg() # ParameterStdModuleCfg()
+    )  # NNStdModuleCfg() # ParameterStdModuleCfg()
     """Module to specify how standard deviation is computed."""
 
 

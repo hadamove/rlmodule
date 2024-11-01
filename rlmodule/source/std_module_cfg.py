@@ -1,9 +1,10 @@
-from dataclasses import MISSING
-from typing import Sequence, Union, Optional, List
-import torch.nn as nn
+from typing import List, Optional
 
-from rlmodule.source.std_module import StdModule, ParameterStdModule, NNStdModule, CombinedStdModule
-from rlmodule.source.network_cfg import NetworkCfg, MlpCfg
+from dataclasses import MISSING
+
+from rlmodule.source.network_cfg import MlpCfg
+from rlmodule.source.std_module import CombinedStdModule, NNStdModule, ParameterStdModule, StdModule
+
 
 # use isaac-lab native configclass if available to avoid double declaration
 try:
@@ -11,53 +12,60 @@ try:
 except ImportError:
     from rlmodule.source.nvidia_utils import configclass
 
+
 @configclass
 class StdModuleCfg:
 
     class_type: type[StdModule] = StdModule
 
+    clip_log_std: bool = True
+    """Flag to indicate whether the log standard deviations should be clipped"""
+
+    min_log_std: float = -20.0
+    """Minimum value of the log standard deviation."""
+
+    max_log_std: float = 2.0
+    """Maximum value of the log standard deviation"""
+
+
 @configclass
-class ParameterStdModuleCfg:
+class ParameterStdModuleCfg(StdModuleCfg):
 
     class_type: type[StdModule] = ParameterStdModule
-    
+
     initial_log_std: float = 0.0
     """Initial value for the log standard deviation"""
 
 
 @configclass
-class NNStdModuleCfg:
+class NNStdModuleCfg(StdModuleCfg):
 
     class_type: type[StdModule] = NNStdModule
-    
+
     network_cfg: Optional[MlpCfg] = None
-    # MlpCfg(
-        # hidden_units=[512],
-        # activation=nn.ReLU,
-    #)
     """
     Config for the hidden part of the network.
 
     Input and output sizes are computed on runtime.
     Output layer is automatically connected with linear layer with
-    identity activation function. 
-    
+    identity activation function.
+
     If network_cfg is None, then input is connected to output with linear
     layer.
     """
 
+
 @configclass
-class CombinedStdModuleCfg:
+class CombinedStdModuleCfg(StdModuleCfg):
 
     class_type: type[StdModule] = CombinedStdModule
-    
+
     combination_method: str = MISSING
     """
     Method used to combine the standard deviations from multiple modules.
-    
+
     Currently supported modes:
     - max
-    - mean
     - min
     """
 

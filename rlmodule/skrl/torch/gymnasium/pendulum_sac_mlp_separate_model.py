@@ -1,32 +1,38 @@
-from datetime import datetime
 import os
+from datetime import datetime
 import gymnasium as gym
+
+# import the skrl components to build the RL system
+from skrl.agents.torch.sac import SAC, SAC_DEFAULT_CONFIG, SAC_RNN
+from skrl.envs.wrappers.torch import wrap_env
+from skrl.memories.torch import RandomMemory
+from skrl.models.torch import DeterministicMixin, GaussianMixin, Model
+from skrl.trainers.torch import SequentialTrainer
+from skrl.utils import set_seed
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-# import the skrl components to build the RL system
-from skrl.agents.torch.sac import SAC, SAC_RNN, SAC_DEFAULT_CONFIG
-from skrl.envs.wrappers.torch import wrap_env
-from skrl.memories.torch import RandomMemory
-from skrl.trainers.torch import SequentialTrainer
-from skrl.utils import set_seed
-
-import torch.nn as nn
-
-from rlmodule.skrl.torch import build_model
+from rlmodule.skrl.torch import RLModelCfg, build_model
 from rlmodule.skrl.torch.network import MlpCfg
 from rlmodule.skrl.torch.output_layer import DeterministicLayerCfg, GaussianLayerCfg
-from rlmodule.skrl.torch import RLModelCfg
+from rlmodule.source.std_module_cfg import ParameterStdModuleCfg
 
-
-from skrl.models.torch import DeterministicMixin, GaussianMixin, Model
 
 # define models (stochastic and deterministic models) using mixins
 class Actor(GaussianMixin, Model):
-    def __init__(self, observation_space, action_space, device, clip_actions=False,
-                 clip_log_std=True, min_log_std=-20, max_log_std=2, reduction="sum"):
+    def __init__(
+        self,
+        observation_space,
+        action_space,
+        device,
+        clip_actions=False,
+        clip_log_std=True,
+        min_log_std=-20,
+        max_log_std=2,
+        reduction="sum",
+    ):
         Model.__init__(self, observation_space, action_space, device)
         GaussianMixin.__init__(self, clip_actions, clip_log_std, min_log_std, max_log_std, reduction)
 
@@ -41,6 +47,7 @@ class Actor(GaussianMixin, Model):
         x = F.relu(self.linear_layer_2(x))
         # Pendulum-v1 action_space is -2 to 2
         return 2 * torch.tanh(self.action_layer(x)), self.log_std_parameter, {}
+
 
 class Critic(DeterministicMixin, Model):
     def __init__(self, observation_space, action_space, device, clip_actions=False):
@@ -75,30 +82,32 @@ def get_model(env):
             device=device,
             output_layer=GaussianLayerCfg(
                 output_size=env.action_space,
-                output_scale = 2.0,
-                min_log_std=-1.2,
-                max_log_std=2,
-                initial_log_std=0.0,
+                output_scale=2.0,
+                std_module=ParameterStdModuleCfg(
+                    min_log_std=-1.2,
+                    max_log_std=2,
+                    initial_log_std=0.0,
+                ),
             ),
         )
     )
 
     value_model_cfg = RLModelCfg(
-            network=net_cfg,
-            device=device,
-            output_layer=DeterministicLayerCfg(),
-        )
-    
+        network=net_cfg,
+        device=device,
+        output_layer=DeterministicLayerCfg(),
+    )
 
     models = {
         "policy": policy_model,
         "critic_1": build_model(value_model_cfg),
         "critic_2": build_model(value_model_cfg),
         "target_critic_1": build_model(value_model_cfg),
-        "target_critic_2": build_model(value_model_cfg)
+        "target_critic_2": build_model(value_model_cfg),
     }
     print(models)
     return models
+
 
 # set seed for reproducibility
 seed = 12245
@@ -137,7 +146,7 @@ print(models)
 
 # initialize models' parameters (weights and biases)
 for model in models.values():
-   model.init_parameters(method_name="normal_", mean=0.0, std=0.1)
+    model.init_parameters(method_name="normal_", mean=0.0, std=0.1)
 
 # configure and instantiate the agent (visit its documentation to see all the options)
 # https://skrl.readthedocs.io/en/latest/api/agents/sac.html#configuration-and-hyperparameters
@@ -164,7 +173,7 @@ params = {
     "device": device,
 }
 
-if False: #models["policy"].is_rnn:
+if False:  # models["policy"].is_rnn:
     agent = SAC_RNN(**params)
 else:
     agent = SAC(**params)
