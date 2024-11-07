@@ -91,9 +91,7 @@ class GaussianLayer(OutputLayer):
             >>> print(actions.shape, log_prob.shape, outputs["mean_actions"].shape)
             torch.Size([4096, 8]) torch.Size([4096, 1]) torch.Size([4096, 8])
         """
-        mean_actions = self._output_scale * self._net(
-            input
-        )  # TODO in skrl example the self._cfg.output_scale * is done here. -> why understand this (is it correct).
+        mean_actions = self._output_scale * self._net(input)
 
         log_std = self._log_std_parameter
 

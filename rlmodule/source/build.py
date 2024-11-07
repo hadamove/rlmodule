@@ -38,4 +38,5 @@ def build_model(cfg: BaseRLCfg):
         )
     else:
         raise TypeError(f" Received unsupported class: '{type(cfg)}'.")
-    return rl_model
+
+    return rl_model.to(cfg.device)

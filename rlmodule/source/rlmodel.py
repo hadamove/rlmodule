@@ -29,7 +29,6 @@ class RLModel(Model):
             states = torch.cat((inputs["states"], inputs["taken_actions"]), dim=1)
         else:
             states = inputs["states"]
-
         if self._rnn:
             output, output_dict = self._net(states, inputs.get("terminated", None), inputs["rnn"])
         else:
