@@ -130,16 +130,6 @@ class GaussianLayer(OutputLayer):
         # TODO(ll)
         # CNN
         # 1) changing shape if it comes in linear fashion of input, check how I was doing this.
-        # def compute(self, inputs, role):
-        # # permute (samples, width * height * channels) -> (samples, channels, width, height)
-        # return self._net(inputs["states"].view(-1, *self.observation_space.shape).permute(0, 3, 1, 2)),
-        # self._log_std, {}
-        # 2) what with that weird Shapes?  search for taken_actions, who called it with this input.
-        # How should CNN be applied to such things..just in states?
-
-        # TODO(ll) output scale removed .. check that tanh where is
-        # return output * self.instantiator_output_scale, self._log_std, {}
-        # return output, self._log_std, output_dict
 
     def get_entropy(self, role: str = "") -> torch.Tensor:
         """Compute and return the entropy of the model

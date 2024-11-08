@@ -9,10 +9,15 @@ def build_model(cfg: BaseRLCfg):
 
     actions_as_input = hasattr(network_cfg, "input_actions") and network_cfg.input_actions is not None
 
+    print("network_cfg.input_states", network_cfg.input_states)
+
     # process input size
     network_cfg.input_states = get_space_size(network_cfg.input_states)
     if actions_as_input:
         network_cfg.input_states += get_space_size(network_cfg.input_actions)
+
+    # cnn
+    network_cfg.input_states = (210, 160, 3)
 
     # build base network of function approximator
     net = network_cfg.module(network_cfg)

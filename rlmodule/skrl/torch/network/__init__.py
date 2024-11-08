@@ -6,6 +6,7 @@ __all__ = [
     "LSTM",
     "RnnBase",
     "RnnMlp",
+    "CNN",
     # configs:
     "NetworkCfg",
     "MlpCfg",
@@ -14,6 +15,7 @@ __all__ = [
     "GruCfg",
     "LstmCfg",
     "RnnMlpCfg",
+    "CnnCfg",
 ]
-from rlmodule.source.network import GRU, LSTM, MLP, RNN, RnnBase, RnnMlp  # noqa: F401
-from rlmodule.source.network_cfg import GruCfg, LstmCfg, MlpCfg, NetworkCfg, RnnBaseCfg, RnnCfg, RnnMlpCfg  # noqa: F401
+from rlmodule.source.network import GRU, LSTM, MLP, RNN, RnnBase, RnnMlp, CNN  # noqa: F401
+from rlmodule.source.network_cfg import GruCfg, LstmCfg, MlpCfg, NetworkCfg, RnnBaseCfg, RnnCfg, RnnMlpCfg, CnnCfg  # noqa: F401

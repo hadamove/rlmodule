@@ -16,6 +16,8 @@ def contains_rnn_module(module: nn.Module, module_types):
 
 
 def get_output_size(module, input_shape):
+
+    print("input_shape:", input_shape)
     module.train(False)
     if isinstance(input_shape, int):
         input_shape = (input_shape,)
@@ -25,6 +27,8 @@ def get_output_size(module, input_shape):
         dummy_hidden = torch.zeros(module.num_layers, 1, module.hidden_size)
         return module(dummy_input, None, (dummy_hidden, dummy_hidden))[0].view(-1).shape[0]
     else:
+        print("din", dummy_input.shape)
+        print("xshape", module(dummy_input).shape)
         return module(dummy_input).view(-1).shape[0]
 
 

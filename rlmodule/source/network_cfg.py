@@ -1,4 +1,4 @@
-from typing import Sequence, Union
+from typing import Sequence, Tuple, Union
 
 from collections.abc import Callable
 from dataclasses import MISSING
@@ -8,7 +8,7 @@ import gymnasium
 import torch.nn as nn
 
 from rlmodule import logger
-from rlmodule.source.network import GRU, LSTM, MLP, RNN, RnnBase, RnnMlp
+from rlmodule.source.network import CNN, GRU, LSTM, MLP, RNN, RnnBase, RnnMlp
 
 
 # use isaac-lab native configclass if available to avoid it being declared twice
@@ -65,3 +65,51 @@ class RnnMlpCfg(NetworkCfg):
 
     rnn: RnnBaseCfg = MISSING
     mlp: MlpCfg = MISSING
+
+
+@configclass
+class CnnConvLayerCfg:
+    in_channels: int = MISSING
+    """Number of input channels."""
+
+    out_channels: int = MISSING
+    """Number of output channels."""
+
+    kernel_size: Union[int, Tuple[int, int]] = MISSING
+    """Size of the kernel."""
+
+    stride: int = MISSING
+    """Stride of the convolution or pooling operation."""
+
+    activation: type[nn.Module] = MISSING
+    """Activation function to use after the layer."""
+
+@configclass
+class CnnPoolLayerCfg:
+    kernel_size: Union[int, Tuple[int, int]] = MISSING
+    """Size of the kernel."""
+
+    stride: int = MISSING
+    """Stride of the convolution or pooling operation."""
+
+@configclass
+class CnnDenseLayerCfg:
+    in_features: int = MISSING
+    """Number of input features."""
+
+    out_features: int = MISSING
+    """Number of output features."""
+
+    activation: type[nn.Module] = MISSING
+    """Activation function to use after the layer."""
+
+@configclass
+class CnnCfg(NetworkCfg):
+    module: type[CNN] = CNN
+
+    layers: Sequence[nn.Module] = MISSING
+    """Layers of convolutional neural network."""
+
+    # activations: Sequence[type[nn.Module]] 
+    # """Activations to be applied after each layer."""
+    

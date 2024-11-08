@@ -442,73 +442,102 @@ class RnnMlpWithForwardedInput(RnnBase):
         return self.mlp(mlp_input), output_dict
 
 
-# CNN - coming soon
+class MLP(nn.Module):
+    """Configurable multilayer perceptron module.
 
-# def get_cnn_layer(params):
-#     """
-#     Create a CNN layer based on the provided parameters and activation function.
+    Architecture is defined by providing modules_cfg.MlpCfg
 
-#     Args:
-#         params (dict): Dictionary containing the parameters for the layer.
-#             Expected keys are:
-#                 - 'type' (str): Type of the layer ('conv' for convolutional, 'pool' for pooling,
-#                                                    'dense' for fully connected).
-#                 - 'in_channels' (int): Number of input channels (required for 'conv' type).
-#                 - 'out_channels' (int): Number of output channels (required for 'conv' type).
-#                 - 'kernel_size' (int or tuple): Size of the kernel (required for 'conv' or 'pool' type).
-#                 - 'stride' (int or tuple): Stride of the convolution or pooling operation
-#                                            (required for 'conv' or 'pool' type).
-#                 - 'in_features' (int): Number of input features (required for 'dense' type).
-#                 - 'out_features' (int): Number of output features (required for 'dense' type).
-#                 - 'activation' (str): Activation function to use after the layer (only for 'conv' and 'dense' types).
+    Example of use:
 
-#     Returns:
-#         list: List containing the created layer(s). For 'conv' type, it includes the convolutional
-#               layer followed by the activation function. For 'pool' type, it includes only the pooling layer.
-#               For 'dense' type, it includes the fully connected layer followed by the activation function.
+        cfg = MlpCfg(
+            input_states = 517,
+            hidden_units = [2048, 1024, 1024, 512],
+            activation = nn.ELU,
+        )
+        net = MLP(cfg)
+    """
 
-#     Raises:
-#         ValueError: If the 'type' specified in params is not supported.
-#     """
-#     if params['type'] == 'conv':
+    def __init__(self, cfg):
+        super().__init__()
+
+        # input layer
+        layers = [
+            nn.Linear(cfg.input_states, cfg.hidden_units[0]),
+            cfg.activation(),
+        ]
+
+        # hidden layers
+        for i in range(len(cfg.hidden_units) - 1):
+            layers.append(nn.Linear(cfg.hidden_units[i], cfg.hidden_units[i + 1]))
+            layers.append(cfg.activation())
+
+        self.mlp = nn.Sequential(*layers)
+
+    def forward(self, input):
+        return self.mlp(input)
+
+
+# def get_cnn_layer(cfg):
+#     """Create a CNN layer based on the provided config."""
+#     if isinstance(cfg, CnnConvLayerCfg):
 #         return [
 #             nn.Conv2d(
-#                 in_channels=params['in_channels'],
-#                 out_channels=params['out_channels'],
-#                 kernel_size=params['kernel_size'],
-#                 stride=params['stride'],
+#                 in_channels=cfg.in_channels,
+#                 out_channels=cfg.out_channels,
+#                 kernel_size=cfg.kernel_size,
+#                 stride=cfg.stride,
 #             ),
-#             _get_activation_function(params['activation']),
+#             cfg.activation(),
 #         ]
-#     elif params['type'] == 'pool':
+#     elif isinstance(cfg, CnnPoolLayerCfg):
 #         return [
 #             nn.MaxPool2d(
-#                 kernel_size=params['kernel_size'],
-#                 stride=params['stride'],
+#                 kernel_size=cfg.kernel_size,
+#                 stride=cfg.stride,
 #             )
 #         ]
-#     elif params['type'] == 'dense':
+#     elif isinstance(cfg, CnnDenseLayerCfg):
 #         return [
 #             nn.Flatten(),  # if there is 2D layer before need to be flatten to 1D.
 #             nn.Linear(
-#                 in_features=params['in_features'],
-#                 out_features=params['out_features'],
+#                 in_features=cfg.in_features,
+#                 out_features=cfg.out_features,
 #             ),
-#             _get_activation_function(params['activation']),
+#             cfg.activation(),
 #         ]
+#     elif isinstance(cfg, nn.Module):
+#         return cfg
 #     else:
-#         raise ValueError(f"Unsupported layer type: {params['type']}")
+#         raise ValueError(f"Unsupported layer type: {type(cfg)}")
 
 
-# class CNN(nn.Module):
-#     def __init__(self, params):
-#         super().__init__()
+class CNN(nn.Module):
+    def __init__(self, cfg):
+        super().__init__()
 
-#         layers = sum([get_cnn_layer(layer_params) for layer_params in params['layers']], [])
-#         self.cnn = nn.Sequential(*layers, nn.Flatten())
+        # layers = sum([get_cnn_layer(layer_params) for layer, activation in zip(cfg.layers, cfg.activations)], [])
+        # self.cnn = nn.Sequential(*layers, nn.Flatten())
 
-#     def forward(self, input):
-#         return self.cnn(input)
+        # modules = []
+        # for layer, activation in zip(cfg.layers, cfg.activations):
+        #     modules.append(layer)
+        #     modules.append(activation())
+
+        modules = []
+
+        for layer in cfg.layers:
+            modules.append(layer)
+
+        self.cnn = nn.Sequential(*modules)
+
+    def forward(self, input):
+
+        print("raw shape:", input.shape)
+        print("shape:", (input.view(-1, *(210, 160, 3)).permute(0, 3, 1, 2)).shape )
+
+        
+
+        return self.cnn(input.view(-1, *(210, 160, 3)).permute(0, 3, 1, 2))
 
 
 # def example_CNN():
