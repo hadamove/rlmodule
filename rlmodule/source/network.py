@@ -533,9 +533,7 @@ class CNN(nn.Module):
     def forward(self, input):
 
         print("raw shape:", input.shape)
-        print("shape:", (input.view(-1, *(210, 160, 3)).permute(0, 3, 1, 2)).shape )
-
-        
+        print("shape:", (input.view(-1, *(210, 160, 3)).permute(0, 3, 1, 2)).shape)
 
         return self.cnn(input.view(-1, *(210, 160, 3)).permute(0, 3, 1, 2))
 

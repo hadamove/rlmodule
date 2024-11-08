@@ -84,6 +84,7 @@ class CnnConvLayerCfg:
     activation: type[nn.Module] = MISSING
     """Activation function to use after the layer."""
 
+
 @configclass
 class CnnPoolLayerCfg:
     kernel_size: Union[int, Tuple[int, int]] = MISSING
@@ -91,6 +92,7 @@ class CnnPoolLayerCfg:
 
     stride: int = MISSING
     """Stride of the convolution or pooling operation."""
+
 
 @configclass
 class CnnDenseLayerCfg:
@@ -103,6 +105,7 @@ class CnnDenseLayerCfg:
     activation: type[nn.Module] = MISSING
     """Activation function to use after the layer."""
 
+
 @configclass
 class CnnCfg(NetworkCfg):
     module: type[CNN] = CNN
@@ -110,6 +113,5 @@ class CnnCfg(NetworkCfg):
     layers: Sequence[nn.Module] = MISSING
     """Layers of convolutional neural network."""
 
-    # activations: Sequence[type[nn.Module]] 
+    # activations: Sequence[type[nn.Module]]
     # """Activations to be applied after each layer."""
-    

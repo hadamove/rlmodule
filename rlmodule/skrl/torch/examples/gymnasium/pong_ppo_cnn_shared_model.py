@@ -1,8 +1,8 @@
+from typing import Tuple
+
 import os
 from datetime import datetime
-from typing import Tuple
 import gymnasium as gym
-import numpy as np
 from gymnasium.spaces import Box
 
 # import the skrl components to build the RL system
@@ -14,6 +14,7 @@ from skrl.resources.schedulers.torch import KLAdaptiveRL
 from skrl.trainers.torch import SequentialTrainer
 from skrl.utils import set_seed
 
+import numpy as np
 import torch
 import torch.nn as nn
 
@@ -21,9 +22,11 @@ from rlmodule.skrl.torch import SharedRLModelCfg, build_model
 from rlmodule.skrl.torch.network import CnnCfg
 from rlmodule.skrl.torch.output_layer import DeterministicLayerCfg, GaussianLayerCfg
 
+
 # CNN as it was done
 # https://github.com/FabricaAI/fabricator/blob/cfca9a7f204002e67c6f64cdd25217a8d4e59f6b/fabricator/src/runners/skrl_runner.py#L5
 # https://github.com/FabricaAI/fabricator/blob/dev/fabricator/src/runners/models.py#L128
+
 
 class DummyEnv(gym.Env):
     def __init__(self):
@@ -51,13 +54,11 @@ class DummyEnv(gym.Env):
         # Generate a random observation with values between 0 and 255
         return np.random.randint(0, 256, (210, 160, 3), dtype=np.uint8)
 
-    def render(self, mode='human') -> None:
+    def render(self, mode="human") -> None:
         pass  # Rendering is not implemented
 
     def close(self) -> None:
         pass
-    
-
 
 
 def get_model(env):
@@ -65,17 +66,17 @@ def get_model(env):
 
     net_cfg = CnnCfg(
         input_states=env.observation_space,
-        layers = [
-            nn.Conv2d(in_channels= 3, out_channels= 32, kernel_size=8, stride=4),
+        layers=[
+            nn.Conv2d(in_channels=3, out_channels=32, kernel_size=8, stride=4),
             nn.ReLU(),
             nn.Flatten(),
             # nn.Conv2d(in_channels= 32, out_channels= 64, kernel_size=4, stride=2),
             # nn.ReLU(),
-            # nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, stride=1), 
+            # nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, stride=1),
             # nn.ReLU(),
             # nn.Linear(64 * 7 * 7, 512),
             # nn.ReLU(),
-        ]
+        ],
     )
 
     model = build_model(
@@ -101,7 +102,7 @@ seed = 42
 set_seed(seed)
 
 env = DummyEnv()
-#env = gym.make_vec("ALE/Pong-v5", num_envs=4, vectorization_mode="sync")
+# env = gym.make_vec("ALE/Pong-v5", num_envs=4, vectorization_mode="sync")
 env = GymnasiumWrapper(env)
 
 device = env.device
