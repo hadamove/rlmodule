@@ -6,8 +6,8 @@ import gymnasium
 
 import torch.nn as nn
 
+from rlmodule.source.log_std_cfg import LogStdCfg, ParameterLogStdCfg
 from rlmodule.source.output_layer import DeterministicLayer, GaussianLayer
-from rlmodule.source.std_module_cfg import CombinedStdModuleCfg, NNStdModuleCfg, ParameterStdModuleCfg, StdModuleCfg
 
 
 # use isaac-lab native configclass if available to avoid double declaration
@@ -46,15 +46,12 @@ class GaussianLayerCfg(OutputLayerCfg):
 
     reduction: str = "sum"
     """Reduction method for returning the log probability density function: (default: ``"sum"``).
-    Supported values are ``"mean"``, ``"sum"``, ``"prod"`` and ``"none"``. If "``none"``, the log probability density
-    function is returned as a tensor of shape ``(num_samples, num_actions)`` instead of ``(num_samples, 1)
+    Supported valuNNLogStdCfges are ``"mean"``, ``"sum"``, ``"prod"`` and ``"none"``. If "``none"``,
+    the log probability density function is returned as a tensor of shape ``(num_samples, num_actions)``
+    instead of ``(num_samples, 1)
     """
 
-    std_module: StdModuleCfg = CombinedStdModuleCfg(
-        combination_method="max",
-        combined_modules=[NNStdModuleCfg(), ParameterStdModuleCfg()],
-        combination_constants=[0.5, 1.0],
-    )  # NNStdModuleCfg() # ParameterStdModuleCfg()
+    log_std: LogStdCfg = ParameterLogStdCfg()
     """Module to specify how standard deviation is computed."""
 
 

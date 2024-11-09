@@ -2,8 +2,8 @@ from typing import List, Optional
 
 from dataclasses import MISSING
 
+from rlmodule.source.log_std import CombinedLogStd, LogStd, NNLogStd, ParameterLogStd
 from rlmodule.source.network_cfg import MlpCfg
-from rlmodule.source.std_module import CombinedStdModule, NNStdModule, ParameterStdModule, StdModule
 
 
 # use isaac-lab native configclass if available to avoid double declaration
@@ -14,9 +14,10 @@ except ImportError:
 
 
 @configclass
-class StdModuleCfg:
+class LogStdCfg:
+    """Configuration for base `LogStd` module."""
 
-    class_type: type[StdModule] = StdModule
+    class_type: type[LogStd] = LogStd
 
     clip_log_std: bool = True
     """Flag to indicate whether the log standard deviations should be clipped"""
@@ -29,18 +30,20 @@ class StdModuleCfg:
 
 
 @configclass
-class ParameterStdModuleCfg(StdModuleCfg):
+class ParameterLogStdCfg(LogStdCfg):
+    """Configuration for `ParameterLogStd` module."""
 
-    class_type: type[StdModule] = ParameterStdModule
+    class_type: type[LogStd] = ParameterLogStd
 
     initial_log_std: float = 0.0
     """Initial value for the log standard deviation"""
 
 
 @configclass
-class NNStdModuleCfg(StdModuleCfg):
+class NNLogStdCfg(LogStdCfg):
+    """Configuration for `NNLogStd` module."""
 
-    class_type: type[StdModule] = NNStdModule
+    class_type: type[LogStd] = NNLogStd
 
     network_cfg: Optional[MlpCfg] = None
     """
@@ -56,9 +59,10 @@ class NNStdModuleCfg(StdModuleCfg):
 
 
 @configclass
-class CombinedStdModuleCfg(StdModuleCfg):
+class CombinedLogStdCfg(LogStdCfg):
+    """Configuration for `CombinedLogStd` module."""
 
-    class_type: type[StdModule] = CombinedStdModule
+    class_type: type[LogStd] = CombinedLogStd
 
     combination_method: str = MISSING
     """
@@ -69,7 +73,7 @@ class CombinedStdModuleCfg(StdModuleCfg):
     - min
     """
 
-    combined_modules: List[StdModuleCfg] = MISSING
+    combined_modules: List[LogStdCfg] = MISSING
     """List of modules to be combined."""
 
     combination_constants: Optional[List[float]] = None

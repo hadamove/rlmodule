@@ -7,7 +7,7 @@ import torch
 import torch.nn as nn
 
 
-class StdModule(nn.Module):
+class LogStd(nn.Module):
     """Base class that defines interface for standard deviation computation in GaussianLayer."""
 
     def __init__(self, device: Union[str, torch.device], input_size: int, output_size: int, cfg):
@@ -33,8 +33,12 @@ class StdModule(nn.Module):
         return raw_std
 
 
-class ParameterStdModule(StdModule):
-    """Class that computes standard deviation in GaussianLayer from nn.Parameter."""
+class ParameterLogStd(LogStd):
+    """Class that models standard deviation in GaussianLayer as nn.Parameter.
+
+    This module creates `output_size` nn.Parameters to represent log_std for each output
+    action.
+    """
 
     def __init__(self, device: Union[str, torch.device], input_size: int, output_size: int, cfg):
         """Initialize Standard deviation computation module."""
@@ -47,8 +51,13 @@ class ParameterStdModule(StdModule):
         return self.clip_std(self._log_parameter)
 
 
-class NNStdModule(StdModule):
-    """Class that computes standard deviation in GaussianLayer from user-provided network.
+class NNLogStd(LogStd):
+    """Class that models standard deviation in GaussianLayer by user-provided network.
+
+    This module instantiates user provided network and processes it's outputs with the linear layer of `output_size`
+    with nn.Identity activation function. This way of deriving std may be beneficial compared to using basic
+    ParameterLogStd because now std computation depends on robots state. This way robot's can choose to
+    explore in some states and exploit in other.
 
     Note:
         Currently support only MLP.
@@ -59,7 +68,6 @@ class NNStdModule(StdModule):
         super().__init__(device, input_size, output_size, cfg)
 
         network_cfg = cfg.network_cfg
-        print(network_cfg)
         # If user did not provide any hidden layers
         if network_cfg is None:
             self._net = nn.Sequential(
@@ -84,8 +92,14 @@ class NNStdModule(StdModule):
         return self.clip_std(self._net(input))
 
 
-class CombinedStdModule(StdModule):
-    """Std module that combines functionality of multiple std modules with predefined function."""
+class CombinedLogStd(LogStd):
+    """Class that combines functionality of multiple LogStd modules with predefined function.
+
+    Combining multiple sources of LogStd can be beneficial to model more advanced exploration techniques.
+    For example combination of ParameterLogStd and NNLogStd with max allows robots to explore in certain
+    states (comes from NNLogStd) but also prevents a common problem where usage of NNLogStd leads to
+    insufficient exploration in other states.
+    """
 
     def __init__(self, device: Union[str, torch.device], input_size: int, output_size: int, cfg):
         super().__init__(device, input_size, output_size, cfg)
@@ -116,7 +130,6 @@ class CombinedStdModule(StdModule):
     def forward(self, input: torch.Tensor) -> torch.Tensor:
         """Compute standard deviation as a combination from multiple Std modules."""
         collected_stds = [
-            self._combination_constants[module_id] * module.forward(input)
-            for module_id, module in enumerate(self._modules)
+            self._combination_constants[module_id] * module(input) for module_id, module in enumerate(self._modules)
         ]
         return self.clip_std(reduce(self._combination_method, collected_stds))
