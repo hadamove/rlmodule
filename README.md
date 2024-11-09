@@ -46,7 +46,11 @@ rm -rf runs
 
 ### Run chosen example
 ```
+<<<<<<< Updated upstream
 python3 rlmodule/rlmodule/skrl/torch/gymnasium/pendulum_ppo_mlp_separate_model.py
+=======
+python3 rlmodule/skrl/torch/examples/gymnasium/skrl_gymnasium_pendulum.py
+>>>>>>> Stashed changes
 ```
 
 Optional: observe run results in Tensorboard
