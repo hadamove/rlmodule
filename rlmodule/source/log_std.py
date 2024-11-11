@@ -54,10 +54,9 @@ class ParameterLogStd(LogStd):
 class NNLogStd(LogStd):
     """Class that models standard deviation in GaussianLayer by user-provided network.
 
-    This module instantiates user provided network and processes it's outputs with the linear layer of `output_size`
-    with nn.Identity activation function. This way of deriving std may be beneficial compared to using basic
-    ParameterLogStd because now std computation depends on robots state. This way robot's can choose to
-    explore in some states and exploit in other.
+    This module instantiates a user-provided network and processes its outputs with a linear layer of `output_size`
+    using an `nn.Identity` activation function. This approach to deriving the standard deviation may be beneficial
+    compared to using a basic `ParameterLogStd`, as the standard deviation computation now depends on the agent's state.
 
     Note:
         Currently support only MLP.
@@ -96,7 +95,7 @@ class CombinedLogStd(LogStd):
     """Class that combines functionality of multiple LogStd modules with predefined function.
 
     Combining multiple sources of LogStd can be beneficial to model more advanced exploration techniques.
-    For example combination of ParameterLogStd and NNLogStd with max allows robots to explore in certain
+    For example combination of ParameterLogStd and NNLogStd with max allows agent to explore in certain
     states (comes from NNLogStd) but also prevents a common problem where usage of NNLogStd leads to
     insufficient exploration in other states.
     """
