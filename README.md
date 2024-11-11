@@ -46,7 +46,7 @@ rm -rf runs
 
 ### Run chosen example
 ```
-python3 rlmodule/rlmodule/skrl/torch/gymnasium/pendulum_ppo_mlp_separate_model.py
+python3 rlmodule/skrl/torch/gymnasium/pendulum_ppo_mlp_separate_model.py
 ```
 
 Optional: observe run results in Tensorboard

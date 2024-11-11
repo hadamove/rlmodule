@@ -47,11 +47,7 @@ class GaussianLayer(OutputLayer):
         """
         super().__init__(device, input_states, cfg)
 
-        self._clip_log_std = cfg.clip_log_std
-        self._log_std_min = cfg.min_log_std
-        self._log_std_max = cfg.max_log_std
-
-        self._clamped_log_std = None
+        self._cached_log_std = None
         self._num_samples = None
         self._distribution = None
 
@@ -65,7 +61,7 @@ class GaussianLayer(OutputLayer):
 
         self._net = nn.Sequential(nn.Linear(self._input_states, self._output_size), cfg.output_activation())
 
-        self._log_std_parameter = nn.Parameter(cfg.initial_log_std * torch.ones(self._output_size))
+        self._log_std = cfg.log_std.class_type(device, input_states, self._output_size, cfg.log_std)
 
     def forward(self, input, taken_actions, outputs_dict):
         """Act stochastically in response to the state of the environment
@@ -91,19 +87,15 @@ class GaussianLayer(OutputLayer):
             >>> print(actions.shape, log_prob.shape, outputs["mean_actions"].shape)
             torch.Size([4096, 8]) torch.Size([4096, 1]) torch.Size([4096, 8])
         """
-        mean_actions = self._output_scale * self._net(input)
+        mean_actions = self._output_scale * self._net(
+            input
+        )  # TODO in skrl example the self._cfg.output_scale * is done here. -> why understand this (is it correct).
 
-        log_std = self._log_std_parameter
-
-        # clamp log standard deviations
-        if self._clip_log_std:
-            log_std = torch.clamp(log_std, self._log_std_min, self._log_std_max)
-
-        self._clamped_log_std = log_std
+        self._cached_log_std = self._log_std(input)
         self._num_samples = mean_actions.shape[0]
 
         # distribution
-        self._distribution = Normal(mean_actions, self._clamped_log_std.exp())
+        self._distribution = Normal(mean_actions, self._cached_log_std.exp())
 
         # sample using the reparametrization trick
         actions = self._distribution.rsample()
@@ -173,7 +165,7 @@ class GaussianLayer(OutputLayer):
             >>> print(log_std.shape)
             torch.Size([4096, 8])
         """
-        return self._clamped_log_std.repeat(self._num_samples, 1)
+        return self._cached_log_std.repeat(self._num_samples, 1)
 
     def distribution(self, role: str = "") -> torch.distributions.Normal:
         """Get the current distribution of the model

@@ -6,6 +6,7 @@ import gymnasium
 
 import torch.nn as nn
 
+from rlmodule.source.log_std_cfg import LogStdCfg, ParameterLogStdCfg
 from rlmodule.source.output_layer import DeterministicLayer, GaussianLayer
 
 
@@ -43,23 +44,15 @@ class GaussianLayerCfg(OutputLayerCfg):
     class_type: type[GaussianLayer] = GaussianLayer
     output_activation: type[nn.Module] = nn.Tanh
 
-    clip_log_std: bool = True
-    """Flag to indicate whether the log standard deviations should be clipped"""
-
-    min_log_std: float = -20.0
-    """Minimum value of the log standard deviation."""
-
-    max_log_std: float = 2.0
-    """Maximum value of the log standard deviation"""
-
-    initial_log_std: float = 0.0
-    """Initial value for the log standard deviation"""
-
     reduction: str = "sum"
     """Reduction method for returning the log probability density function: (default: ``"sum"``).
-    Supported values are ``"mean"``, ``"sum"``, ``"prod"`` and ``"none"``. If "``none"``, the log probability density
-    function is returned as a tensor of shape ``(num_samples, num_actions)`` instead of ``(num_samples, 1)
+    Supported values are ``"mean"``, ``"sum"``, ``"prod"`` and ``"none"``. If "``none"``,
+    the log probability density function is returned as a tensor of shape ``(num_samples, num_actions)``
+    instead of ``(num_samples, 1).
     """
+
+    log_std: LogStdCfg = ParameterLogStdCfg()
+    """Module to specify how standard deviation is computed."""
 
 
 @configclass

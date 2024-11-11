@@ -14,9 +14,8 @@ from skrl.utils import set_seed
 import torch.nn as nn
 
 from rlmodule.skrl.torch import RLModelCfg, build_model
-from rlmodule.skrl.torch.network import MlpCfg
-from rlmodule.skrl.torch.output_layer import DeterministicLayerCfg, GaussianLayerCfg
-from rlmodule.source.network_cfg import RnnCfg, RnnMlpCfg
+from rlmodule.skrl.torch.network import MlpCfg, RnnCfg, RnnMlpCfg
+from rlmodule.skrl.torch.output_layer import DeterministicLayerCfg, GaussianLayerCfg, ParameterLogStdCfg
 
 
 def get_model(env):
@@ -43,9 +42,11 @@ def get_model(env):
             output_layer=GaussianLayerCfg(
                 output_size=env.action_space,
                 output_scale=2.0,
-                min_log_std=-1.2,
-                max_log_std=2,
-                initial_log_std=0.0,
+                log_std=ParameterLogStdCfg(
+                    min_log_std=-1.2,
+                    max_log_std=2,
+                    initial_log_std=0.0,
+                ),
             ),
         )
     )
