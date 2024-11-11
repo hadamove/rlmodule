@@ -20,13 +20,13 @@ class LogStdCfg:
     class_type: type[LogStd] = LogStd
 
     clip_log_std: bool = True
-    """Flag to indicate whether the log standard deviations should be clipped"""
+    """Flag to indicate whether the log standard deviations should be clipped."""
 
     min_log_std: float = -20.0
     """Minimum value of the log standard deviation."""
 
     max_log_std: float = 2.0
-    """Maximum value of the log standard deviation"""
+    """Maximum value of the log standard deviation."""
 
 
 @configclass
@@ -36,7 +36,7 @@ class ParameterLogStdCfg(LogStdCfg):
     class_type: type[LogStd] = ParameterLogStd
 
     initial_log_std: float = 0.0
-    """Initial value for the log standard deviation"""
+    """Initial value for the log standard deviation."""
 
 
 @configclass

@@ -46,9 +46,9 @@ class GaussianLayerCfg(OutputLayerCfg):
 
     reduction: str = "sum"
     """Reduction method for returning the log probability density function: (default: ``"sum"``).
-    Supported valuNNLogStdCfges are ``"mean"``, ``"sum"``, ``"prod"`` and ``"none"``. If "``none"``,
+    Supported values are ``"mean"``, ``"sum"``, ``"prod"`` and ``"none"``. If "``none"``,
     the log probability density function is returned as a tensor of shape ``(num_samples, num_actions)``
-    instead of ``(num_samples, 1)
+    instead of ``(num_samples, 1).
     """
 
     log_std: LogStdCfg = ParameterLogStdCfg()

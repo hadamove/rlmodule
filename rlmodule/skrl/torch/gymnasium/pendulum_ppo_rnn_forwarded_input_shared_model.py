@@ -14,9 +14,8 @@ from skrl.utils import set_seed
 import torch.nn as nn
 
 from rlmodule.skrl.torch import SharedRLModelCfg, build_model
-from rlmodule.skrl.torch.log_std import ParameterLogStdCfg
 from rlmodule.skrl.torch.network import MlpCfg, RnnCfg, RnnMlpCfg, RnnMlpWithForwardedInput
-from rlmodule.skrl.torch.output_layer import DeterministicLayerCfg, GaussianLayerCfg
+from rlmodule.skrl.torch.output_layer import DeterministicLayerCfg, GaussianLayerCfg, ParameterLogStdCfg
 
 
 def get_model(env):
