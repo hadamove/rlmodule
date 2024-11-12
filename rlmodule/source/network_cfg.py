@@ -8,7 +8,7 @@ import gymnasium
 import torch.nn as nn
 
 from rlmodule import logger
-from rlmodule.source.network import GRU, LSTM, MLP, RNN, RnnBase, RnnMlp
+from rlmodule.source.network import CNN, GRU, LSTM, MLP, RNN, RnnBase, RnnMlp
 
 
 # use isaac-lab native configclass if available to avoid it being declared twice
@@ -22,6 +22,8 @@ except ImportError:
 @configclass
 class NetworkCfg:
     module: Union[nn.Module, Callable[..., nn.Module]] = MISSING
+    input_size: int = None
+    """Size of all network inputs. This field should be automatically derived from input_states/input_actions."""
     input_states: Union[int, Sequence[int], gym.Space, gymnasium.Space] = None
     """Observations passed to the network as an input."""
     input_actions: Union[int, Sequence[int], gym.Space, gymnasium.Space] = None
@@ -65,3 +67,16 @@ class RnnMlpCfg(NetworkCfg):
 
     rnn: RnnBaseCfg = MISSING
     mlp: MlpCfg = MISSING
+
+
+@configclass
+class CnnCfg(NetworkCfg):
+    """Config for convolutional neural network.
+    For network to work properly the input states need to be specified as a triple in order (x,y,channels)
+    Warning: CNN is in an experimental phase. Some combination of inputs may not be yet supported.
+    """
+
+    module: type[CNN] = CNN
+
+    layers: Sequence[nn.Module] = MISSING
+    """Layers of convolutional neural network."""
