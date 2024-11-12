@@ -476,7 +476,6 @@ class CNN(nn.Module):
         self.cnn = nn.Sequential(*modules)
 
     def forward(self, input):
-        print(input.shape)
         # Cnn expects inputs in shape (batch, channels, x, y)
         return self.cnn(input.view(-1, *self._input_shape).permute(0, 3, 1, 2))
 

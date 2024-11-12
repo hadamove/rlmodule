@@ -25,9 +25,11 @@ from rlmodule.skrl.torch.output_layer import DeterministicLayerCfg, GaussianLaye
 
 
 class DummyEnv(gym.Env):
+    """Dummy env producing random observations of given shape."""
+
     def __init__(self):
         super(DummyEnv, self).__init__()
-        # Define observation space: RGB image with shape (210, 160, 3) and values between 0 and 255
+        # Define observation space:
         self.observation_space = gym.spaces.Box(low=0, high=255, shape=(169,), dtype=np.uint8)
         # Define action space: Continuous values between -1.0 and 1.0, with 6 action dimensions
         self.action_space = gym.spaces.Box(low=-1.0, high=1.0, shape=(6,), dtype=np.float32)
@@ -49,12 +51,6 @@ class DummyEnv(gym.Env):
     def _get_random_observation(self) -> np.ndarray:
         # Generate a random observation with values between 0 and 255
         return np.random.randint(0, 256, 169, dtype=np.uint8)
-
-    def render(self, mode="human") -> None:
-        pass  # Rendering is not implemented
-
-    def close(self) -> None:
-        pass
 
 
 def get_model(env):

@@ -27,9 +27,6 @@ def get_model(env):
         activation=nn.ReLU,
     )
 
-    print(env.action_space)
-    print(env.observation_space)
-
     policy_model = build_model(
         RLModelCfg(
             network=net_cfg,
