@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 
+from rlmodule.source.utils import get_cnn_shape
+
 
 class MLP(nn.Module):
     """Configurable multilayer perceptron module.
@@ -10,7 +12,7 @@ class MLP(nn.Module):
     Example of use:
 
         cfg = MlpCfg(
-            input_states = 517,
+            input_size = 517,
             hidden_units = [2048, 1024, 1024, 512],
             activation = nn.ELU,
         )
@@ -22,7 +24,7 @@ class MLP(nn.Module):
 
         # input layer
         layers = [
-            nn.Linear(cfg.input_states, cfg.hidden_units[0]),
+            nn.Linear(cfg.input_size, cfg.hidden_units[0]),
             cfg.activation(),
         ]
 
@@ -66,7 +68,7 @@ class LSTM(RnnBase):
     Example of use:
 
         cfg = LstmCfg(
-            input_states = 517,
+            input_size = 517,
             num_envs = 2048,
             num_layers = 1,
             hidden_size = 512 + 256,
@@ -79,7 +81,7 @@ class LSTM(RnnBase):
         super().__init__(cfg)
 
         self.lstm = nn.LSTM(
-            input_size=cfg.input_states,
+            input_size=cfg.input_size,
             hidden_size=cfg.hidden_size,
             num_layers=cfg.num_layers,
             batch_first=True,
@@ -235,7 +237,7 @@ class RNN(RnnModule):
     Example of use:
 
         cfg = RnnCfg(
-            input_states = 517,
+            input_size = 517,
             num_envs = 2048,
             num_layers = 1,
             hidden_size = 512 + 256,
@@ -248,7 +250,7 @@ class RNN(RnnModule):
         super().__init__(cfg)
 
         self.rnn = nn.RNN(
-            input_size=cfg.input_states,
+            input_size=cfg.input_size,
             hidden_size=cfg.hidden_size,
             num_layers=cfg.num_layers,
             batch_first=True,
@@ -266,7 +268,7 @@ class GRU(RnnModule):
     Example of use:
 
         cfg = GruCfg(
-            input_states = 517,
+            input_size = 517,
             num_envs = 2048,
             num_layers = 1,
             hidden_size = 512 + 256,
@@ -279,7 +281,7 @@ class GRU(RnnModule):
         super().__init__(cfg)
 
         self.rnn = nn.GRU(
-            input_size=cfg.input_states,
+            input_size=cfg.input_size,
             hidden_size=cfg.hidden_size,
             num_layers=cfg.num_layers,
             batch_first=True,
@@ -298,7 +300,7 @@ class RnnMlp(RnnBase):
     1) Example of use (with RNN module):
 
         cfg = RnnMlpCfg(
-                input_states = 517,
+                input_size = 517,
                 rnn = RnnCfg(
                     num_envs = 2048,
                     num_layers = 1,
@@ -315,7 +317,7 @@ class RnnMlp(RnnBase):
     2) Example of use (with GRU module):
 
         cfg = RnnMlpCfg(
-                input_states = 517,
+                input_size = 517,
                 rnn = GruCfg(
                     num_envs = 2048,
                     num_layers = 1,
@@ -332,7 +334,7 @@ class RnnMlp(RnnBase):
     3) Example of use (with LSTM module):
 
         cfg = RnnMlpCfg(
-                input_states = 517,
+                input_size = 517,
                 rnn = LstmCfg(
                     num_envs = 2048,
                     num_layers = 1,
@@ -349,9 +351,9 @@ class RnnMlp(RnnBase):
 
     def __init__(self, cfg):
         super().__init__(cfg.rnn)
-        cfg.rnn.input_states = cfg.input_states
+        cfg.rnn.input_size = cfg.input_size
         self.rnn = cfg.rnn.module(cfg.rnn)
-        cfg.mlp.input_states = self.hidden_size
+        cfg.mlp.input_size = self.hidden_size
         self.mlp = MLP(cfg.mlp)
 
     def forward(self, states, terminated, rnn_inputs):
@@ -372,7 +374,7 @@ class RnnMlpWithForwardedInput(RnnBase):
     1) Example of use (with RNN module):
 
         cfg = RnnMlpCfg(
-                input_states = 517,
+                input_size = 517,
                 module = RnnMlpWithForwardedInput,
                 rnn = RnnCfg(
                     num_envs = 2048,
@@ -390,7 +392,7 @@ class RnnMlpWithForwardedInput(RnnBase):
     2) Example of use (with GRU module):
 
         cfg = RnnMlpCfg(
-                input_states = 517,
+                input_size = 517,
                 module = RnnMlpWithForwardedInput,
                 rnn = GruCfg(
                     num_envs = 2048,
@@ -408,7 +410,7 @@ class RnnMlpWithForwardedInput(RnnBase):
     3) Example of use (with LSTM module):
 
         cfg = RnnMlpCfg(
-                input_states = 517,
+                input_size = 517,
                 module = RnnMlpWithForwardedInput,
                 rnn = LstmCfg(
                     num_envs = 2048,
@@ -430,9 +432,9 @@ class RnnMlpWithForwardedInput(RnnBase):
 
     def __init__(self, cfg):
         super().__init__(cfg.rnn)
-        cfg.rnn.input_states = cfg.input_states
+        cfg.rnn.input_size = cfg.input_size
         self.rnn = cfg.rnn.module(cfg.rnn)
-        cfg.mlp.input_states = cfg.input_states + self.hidden_size
+        cfg.mlp.input_size = cfg.input_size + self.hidden_size
         self.mlp = MLP(cfg.mlp)
 
     def forward(self, states, terminated, rnn_inputs):
@@ -442,93 +444,40 @@ class RnnMlpWithForwardedInput(RnnBase):
         return self.mlp(mlp_input), output_dict
 
 
-# CNN - coming soon
+class CNN(nn.Module):
+    """Experimental implementation of Convolutional neural network.
+    Architecture is defined by providing modules_cfg.MlpCfg.
 
-# def get_cnn_layer(params):
-#     """
-#     Create a CNN layer based on the provided parameters and activation function.
+    Warning: CNN is in an experimental phase. Some combination of inputs may not be yet supported.
 
-#     Args:
-#         params (dict): Dictionary containing the parameters for the layer.
-#             Expected keys are:
-#                 - 'type' (str): Type of the layer ('conv' for convolutional, 'pool' for pooling,
-#                                                    'dense' for fully connected).
-#                 - 'in_channels' (int): Number of input channels (required for 'conv' type).
-#                 - 'out_channels' (int): Number of output channels (required for 'conv' type).
-#                 - 'kernel_size' (int or tuple): Size of the kernel (required for 'conv' or 'pool' type).
-#                 - 'stride' (int or tuple): Stride of the convolution or pooling operation
-#                                            (required for 'conv' or 'pool' type).
-#                 - 'in_features' (int): Number of input features (required for 'dense' type).
-#                 - 'out_features' (int): Number of output features (required for 'dense' type).
-#                 - 'activation' (str): Activation function to use after the layer (only for 'conv' and 'dense' types).
+    Example of use:
 
-#     Returns:
-#         list: List containing the created layer(s). For 'conv' type, it includes the convolutional
-#               layer followed by the activation function. For 'pool' type, it includes only the pooling layer.
-#               For 'dense' type, it includes the fully connected layer followed by the activation function.
+        cfg = CnnCfg(
+            input_size = (13, 13, 1)  # input states in order (x,y,channels)
+            layers=[
+                nn.Conv2d(in_channels=1, out_channels=64, kernel_size=3, stride=2),
+                nn.ReLU(),
+                nn.Flatten()
+            ]
+        )
+        net = CNN(cfg)
+    """
 
-#     Raises:
-#         ValueError: If the 'type' specified in params is not supported.
-#     """
-#     if params['type'] == 'conv':
-#         return [
-#             nn.Conv2d(
-#                 in_channels=params['in_channels'],
-#                 out_channels=params['out_channels'],
-#                 kernel_size=params['kernel_size'],
-#                 stride=params['stride'],
-#             ),
-#             _get_activation_function(params['activation']),
-#         ]
-#     elif params['type'] == 'pool':
-#         return [
-#             nn.MaxPool2d(
-#                 kernel_size=params['kernel_size'],
-#                 stride=params['stride'],
-#             )
-#         ]
-#     elif params['type'] == 'dense':
-#         return [
-#             nn.Flatten(),  # if there is 2D layer before need to be flatten to 1D.
-#             nn.Linear(
-#                 in_features=params['in_features'],
-#                 out_features=params['out_features'],
-#             ),
-#             _get_activation_function(params['activation']),
-#         ]
-#     else:
-#         raise ValueError(f"Unsupported layer type: {params['type']}")
+    def __init__(self, cfg):
+        super().__init__()
+        self._input_size = cfg.input_size
 
+        self._input_shape = get_cnn_shape(cfg.input_states)
 
-# class CNN(nn.Module):
-#     def __init__(self, params):
-#         super().__init__()
+        modules = []
+        for layer in cfg.layers:
+            modules.append(layer)
 
-#         layers = sum([get_cnn_layer(layer_params) for layer_params in params['layers']], [])
-#         self.cnn = nn.Sequential(*layers, nn.Flatten())
+        self.cnn = nn.Sequential(*modules)
 
-#     def forward(self, input):
-#         return self.cnn(input)
-
-
-# def example_CNN():
-#     params = {
-#         'input_shape': [1, 13, 13],
-#         'layers': [
-#             {'type': 'conv', 'kernel_size': 3, 'stride': 2, 'in_channels': 1,
-#              'out_channels': 32, 'activation': 'relu'},
-#             {
-#                 'type': 'conv',
-#                 'kernel_size': 3,
-#                 'stride': 1,
-#                 'in_channels': 32,
-#                 'out_channels': 64,
-#                 'activation': 'relu',
-#             },
-#         ],
-#     }
-
-#     return CNN(params)
+    def forward(self, input):
+        # Cnn expects inputs in shape (batch, channels, x, y)
+        return self.cnn(input.view(-1, *self._input_shape).permute(0, 3, 1, 2))
 
 
 # class TripleCnnAndMlp(nn.Module):
@@ -570,7 +519,7 @@ class RnnMlpWithForwardedInput(RnnBase):
 
 #         self.cnns = nn.ModuleList([CNN(cnn_params) for _ in range(self.cnn_number)])
 
-#         mlp_params['input_states'] = self.prefix_length + self.cnn_number * get_output_size(
+#         mlp_params['input_size'] = self.prefix_length + self.cnn_number * get_output_size(
 #             self.cnns[0], self.input_shape
 #         )
 
@@ -630,13 +579,13 @@ class RnnMlpWithForwardedInput(RnnBase):
 
 #         self.cnns = nn.ModuleList([CNN(cnn_params) for _ in range(self.cnn_number)])
 
-#         rnn_params['input_states'] = self.prefix_length + self.cnn_number * get_output_size(
+#         rnn_params['input_size'] = self.prefix_length + self.cnn_number * get_output_size(
 #             self.cnns[0], self.input_shape
 #         )
 
 #         self.rnn = rnn_class(rnn_params)
 
-#         mlp_params['input_states'] = self.rnn.hidden_size + self.rnn.input_states
+#         mlp_params['input_size'] = self.rnn.hidden_size + self.rnn.input_size
 
 #         self.mlp = MLP(mlp_params)
 

@@ -1,3 +1,5 @@
+from typing import Tuple
+
 import os
 from datetime import datetime
 import gymnasium as gym
@@ -11,62 +13,86 @@ from skrl.resources.schedulers.torch import KLAdaptiveRL
 from skrl.trainers.torch import SequentialTrainer
 from skrl.utils import set_seed
 
+import numpy as np
 import torch.nn as nn
 
-from rlmodule.skrl.torch import RLModelCfg, build_model
-from rlmodule.skrl.torch.network import MlpCfg
+from rlmodule.skrl.torch import SharedRLModelCfg, build_model
+from rlmodule.skrl.torch.network import CnnCfg
 from rlmodule.skrl.torch.output_layer import DeterministicLayerCfg, GaussianLayerCfg, ParameterLogStdCfg
+
+
+# CNN is in an experimental phase. Some combination of inputs may not be yet supported
+
+
+class DummyEnv(gym.Env):
+    """Dummy env producing random observations of given shape."""
+
+    def __init__(self):
+        super(DummyEnv, self).__init__()
+        # Define observation space:
+        self.observation_space = gym.spaces.Box(low=0, high=255, shape=(169,), dtype=np.uint8)
+        # Define action space: Continuous values between -1.0 and 1.0, with 6 action dimensions
+        self.action_space = gym.spaces.Box(low=-1.0, high=1.0, shape=(6,), dtype=np.float32)
+
+    def reset(self) -> Tuple[np.ndarray, dict]:
+        # Reset environment and return initial random observation
+        observation = self._get_random_observation()
+        return observation, {}
+
+    def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, bool, dict]:
+        # Create a new random observation
+        observation = self._get_random_observation()
+        reward = 0.0  # No meaningful reward in this dummy environment
+        terminated = False  # This dummy environment never ends
+        truncated = False
+        info = {}
+        return observation, reward, terminated, truncated, info
+
+    def _get_random_observation(self) -> np.ndarray:
+        # Generate a random observation with values between 0 and 255
+        return np.random.randint(0, 256, 169, dtype=np.uint8)
 
 
 def get_model(env):
     """Instantiate the agent's models (function approximators)."""
 
-    net_cfg = MlpCfg(
-        input_states=env.observation_space,
-        hidden_units=[400, 300],
-        activation=nn.ReLU,
+    net_cfg = CnnCfg(
+        input_states=(13, 13, 1),
+        layers=[
+            nn.Conv2d(in_channels=1, out_channels=64, kernel_size=3, stride=2),
+            nn.ReLU(),
+            nn.Flatten(),
+        ],
     )
 
-    print(env.action_space)
-    print(env.observation_space)
-
-    policy_model = build_model(
-        RLModelCfg(
+    model = build_model(
+        SharedRLModelCfg(
             network=net_cfg,
             device=device,
-            output_layer=GaussianLayerCfg(
+            policy_output_layer=GaussianLayerCfg(
                 output_size=env.action_space,
-                output_scale=2.0,
                 log_std=ParameterLogStdCfg(
                     min_log_std=-1.2,
                     max_log_std=2,
                     initial_log_std=0.0,
                 ),
             ),
+            value_output_layer=DeterministicLayerCfg(),
         )
     )
 
-    value_model = build_model(
-        RLModelCfg(
-            network=net_cfg,
-            device=device,
-            output_layer=DeterministicLayerCfg(),
-        )
-    )
-
-    models = {"policy": policy_model, "value": value_model}
-    print(models)
-    return models
+    print(model)
+    return {"policy": model, "value": model}
 
 
 # set seed for reproducibility
 seed = 42
 set_seed(seed)
 
-# load and wrap the gymnasium environment.
-env = gym.make_vec("Pendulum-v1", num_envs=4, vectorization_mode="sync")
-env.reset(seed=seed)
+env = DummyEnv()
+# env = gym.make_vec("ALE/Pong-v5", num_envs=4, vectorization_mode="sync")
 env = GymnasiumWrapper(env)
+
 device = env.device
 
 # instantiate a memory as rollout buffer (any memory can be used for this)

@@ -28,6 +28,35 @@ def get_output_size(module, input_shape):
         return module(dummy_input).view(-1).shape[0]
 
 
+def get_cnn_shape(space: Union[int, Sequence[int], gym.Space, gymnasium.Space]):
+    """Experimental function to get shape of cnn input.
+
+    :param space: Space or shape from which to obtain the number of elements
+    :type space: int, sequence of int, gym.Space, or gymnasium.Space
+
+    :raises ValueError: If the space is not supported
+    :rtype: tuple
+
+    Example::
+        # from sequence of int
+        >>> model._get_space_size([2, 3])
+        (2, 3)
+
+        # Box space
+        >>> space = gym.spaces.Box(low=-1, high=1, shape=(2, 3))
+        >>> model._get_space_size(space)
+        (2, 3)
+
+        # Other types are currently not supported as a cnn input
+    """
+    if type(space) in [tuple, list]:
+        return tuple(space)
+    elif issubclass(type(space), gym.spaces.Box):
+        return space.shape
+    else:
+        raise ValueError(f"Space type {type(space)} is not supported as cnn input.")
+
+
 def get_space_size(
     space: Union[int, Sequence[int], gym.Space, gymnasium.Space], number_of_elements: bool = True
 ) -> int:

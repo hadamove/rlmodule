@@ -10,9 +10,9 @@ def build_model(cfg: BaseRLCfg):
     actions_as_input = hasattr(network_cfg, "input_actions") and network_cfg.input_actions is not None
 
     # process input size
-    network_cfg.input_states = get_space_size(network_cfg.input_states)
+    network_cfg.input_size = get_space_size(network_cfg.input_states)
     if actions_as_input:
-        network_cfg.input_states += get_space_size(network_cfg.input_actions)
+        network_cfg.input_size += get_space_size(network_cfg.input_actions)
 
     # build base network of function approximator
     net = network_cfg.module(network_cfg)
@@ -21,10 +21,10 @@ def build_model(cfg: BaseRLCfg):
         net.input_actions = True
 
     # get output size to be used as output layer input
-    network_output_size = get_output_size(net, network_cfg.input_states)
+    network_output_size = get_output_size(net, network_cfg.input_size)
 
     def build_output_layer(layer_cfg):
-        return layer_cfg.class_type(device=cfg.device, input_states=network_output_size, cfg=layer_cfg)
+        return layer_cfg.class_type(device=cfg.device, input_size=network_output_size, cfg=layer_cfg)
 
     # build function approximator
     if isinstance(cfg, RLModelCfg):
