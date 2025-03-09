@@ -35,6 +35,17 @@ class MLP(nn.Module):
 
         self.mlp = nn.Sequential(*layers)
 
+        # Apply freeze mask if provided
+        if cfg.freeze_mask is not None:
+            if len(cfg.freeze_mask) != len(cfg.hidden_units):
+                raise ValueError("freeze_mask length must match hidden_units length.")
+
+            # Freeze the corresponding linear layers (even indices: 0, 2, 4, ...)
+            for idx, freeze in enumerate(cfg.freeze_mask):
+                if freeze:
+                    for param in self.mlp[2 * idx].parameters():
+                        param.requires_grad = False
+
     def forward(self, input):
         return self.mlp(input)
 

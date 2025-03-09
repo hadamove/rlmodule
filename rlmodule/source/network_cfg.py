@@ -1,4 +1,4 @@
-from typing import Sequence, Union
+from typing import Optional, Sequence, Union
 
 from collections.abc import Callable
 from dataclasses import MISSING
@@ -36,6 +36,11 @@ class MlpCfg(NetworkCfg):
 
     hidden_units: Sequence[int] = MISSING
     activation: type[nn.Module] = MISSING
+
+    freeze_mask: Optional[Sequence[bool]] = None
+    """Mask for freezing layers. If None, all layers are trainable.
+    The length of the mask should equal to length of `hidden_units`.
+    """
 
 
 @configclass
